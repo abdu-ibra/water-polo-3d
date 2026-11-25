@@ -1,5 +1,11 @@
 # WATER POLO 3D — Olympic Water Polo
 
+[![Play Live](https://img.shields.io/badge/▶%20Play%20Live-GitHub%20Pages-0891b2?style=for-the-badge)](https://ashoebb.github.io/water-polo-3d/)
+[![Three.js](https://img.shields.io/badge/Three.js-0.169.0-1e6de8?style=for-the-badge)](https://threejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
+
+**Live Demo:** [https://ashoebb.github.io/water-polo-3d/](https://ashoebb.github.io/water-polo-3d/)
+
 A self-contained **3D WebGL Water Polo** game built with HTML5, CSS, and **Three.js (`0.169.0`)** in a single zero-build file (`waterpolo-3d.html`).
 
 Play 7v7 Olympic water polo from a FIFA-style broadcast perspective featuring procedural articulated swimmers, real-time animated water with caustics and splash physics, tactical 3-3 half-court sets, counter-attacks, and authentic water polo rules.
