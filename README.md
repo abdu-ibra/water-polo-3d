@@ -44,9 +44,20 @@ Play 7v7 Olympic water polo from a FIFA-style broadcast perspective featuring pr
 - Auto-switching on defense/loose balls with manual `Q`/`E` override lock (`2.6s`) and HUD toggle (`AUTO-SW`).
 - Procedural Web Audio synthesizer (whistle, splashes, throws, goalpost clang, goal horn) with zero external audio assets.
 
+### 5. Mobile Web & Landscape On-Screen Touch Controls
+- Responsive landscape-optimized HUD with portrait orientation prompt, safe-area padding, and fullscreen toggle (`⛶`).
+- **Left Thumb:** Virtual 360° analog swim joystick (pushing to the outer ring auto-sprints) + dedicated **SPRINT** pill.
+- **Right Thumb (Context-Aware):**
+  - **Offense:** **SHOOT** (hold to charge, release to fire), **PASS**, **LOB**, and **FAKE** (pump fake/baulk).
+  - **Defense:** **STEAL** (tackle lunge), **SWITCH** (nearest defender / call pass), and **CYCLE** (next defender).
+- **Direct Touch Aim & Smart Fallback:** Tap or drag anywhere on the water to aim manually in 3D space, or play two-thumbed with automatic corner/directional aiming.
+- Manual HUD toggle (`TOUCH: AUTO / ON / OFF`) lets you test or force on-screen controls on any device.
+
 ---
 
 ## Controls
+
+### Desktop (Keyboard & Mouse)
 
 | Input | Action |
 | :--- | :--- |
@@ -61,6 +72,18 @@ Play 7v7 Olympic water polo from a FIFA-style broadcast perspective featuring pr
 | `Q` | Cycle controlled Blue player |
 | `F` | Close-range steal / tackle lunge |
 | `P` or `Esc` | Pause / Resume / Change difficulty |
+
+### Mobile Web (Landscape Touch Controls)
+
+| Control | Action |
+| :--- | :--- |
+| Left Joystick | 360° Swim (push > 88% edge to auto-sprint) |
+| **SPRINT** Pill | Hold to Sprint |
+| Pool Canvas Touch/Drag | Aim pass/shot in 3D water space (auto-aims open goal corner if untouched) |
+| **SHOOT** *(Hold & Release)* / **STEAL** | Charge & fire shot on offense / Steal lunge on defense |
+| **PASS** / **SWITCH** | Pass to teammate / Switch nearest or call pass |
+| **LOB** / **CYCLE** | Lob shot on offense / Cycle defender on defense |
+| **FAKE** | Pump fake / baulk on offense |
 
 ---
 

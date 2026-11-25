@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>WATER POLO 3D — Olympic Water Polo</title>
   <style>
     :root {
@@ -24,6 +26,8 @@
       margin: 0;
       padding: 0;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html, body {
@@ -33,6 +37,7 @@
       background: #04101f;
       font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
       color: var(--text-main);
+      touch-action: none;
     }
 
     #webgl-container {
@@ -41,6 +46,7 @@
       width: 100%;
       height: 100%;
       cursor: crosshair;
+      touch-action: none;
     }
 
     /* Broadcast Top HUD */
@@ -621,12 +627,223 @@
       gap: 18px;
     }
 
+    /* Mobile Touch Controls (Landscape) */
+    #touch-controls {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 14;
+      display: none;
+    }
+
+    body.touch-enabled #touch-controls {
+      display: block;
+    }
+
+    body.touch-enabled .controls-pill {
+      display: none;
+    }
+
+    .touch-left {
+      position: fixed;
+      left: max(18px, env(safe-area-inset-left));
+      bottom: max(16px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .joystick-base {
+      position: relative;
+      width: 124px;
+      height: 124px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.14) 0%, rgba(7, 18, 34, 0.65) 72%);
+      border: 2px solid rgba(56, 189, 248, 0.45);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 0 18px rgba(34, 211, 238, 0.16);
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .joystick-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 50px;
+      height: 50px;
+      margin-left: -25px;
+      margin-top: -25px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #67e8f9, #0284c7);
+      border: 2px solid #e0f2fe;
+      box-shadow: 0 4px 14px rgba(14, 165, 233, 0.55);
+      pointer-events: none;
+      transition: transform 0.04s linear;
+    }
+
+    .touch-right {
+      position: fixed;
+      right: max(18px, env(safe-area-inset-right));
+      bottom: max(16px, env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      grid-template-rows: auto auto;
+      gap: 10px;
+      align-items: end;
+      justify-items: end;
+      pointer-events: none;
+    }
+
+    .touch-btn {
+      pointer-events: auto;
+      touch-action: none;
+      border: 2px solid rgba(148, 163, 184, 0.45);
+      background: rgba(7, 18, 34, 0.78);
+      backdrop-filter: blur(8px);
+      color: #f8fafc;
+      font-weight: 900;
+      letter-spacing: 0.7px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+      transition: transform 0.08s ease, background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .touch-btn.active {
+      transform: scale(0.92);
+      filter: brightness(1.2);
+    }
+
+    .touch-btn-sm {
+      width: 56px;
+      height: 56px;
+      font-size: 10px;
+    }
+
+    .touch-btn-md {
+      width: 68px;
+      height: 68px;
+      font-size: 12px;
+      border-color: rgba(56, 189, 248, 0.65);
+      background: rgba(14, 116, 144, 0.72);
+    }
+
+    .touch-btn-lg {
+      width: 84px;
+      height: 84px;
+      font-size: 13px;
+      border-color: rgba(250, 204, 21, 0.8);
+      background: linear-gradient(135deg, rgba(234, 88, 12, 0.85), rgba(220, 38, 38, 0.88));
+    }
+
+    .touch-btn-lg.defense-mode {
+      border-color: rgba(34, 211, 238, 0.85);
+      background: linear-gradient(135deg, rgba(30, 109, 232, 0.85), rgba(8, 145, 178, 0.88));
+    }
+
+    .touch-sprint-pill {
+      pointer-events: auto;
+      touch-action: none;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.9px;
+      border: 1.5px solid rgba(34, 211, 238, 0.55);
+      background: rgba(7, 18, 34, 0.78);
+      color: #bae6fd;
+    }
+
+    .touch-sprint-pill.active {
+      background: rgba(14, 165, 233, 0.85);
+      color: #fff;
+      border-color: #e0f2fe;
+    }
+
+    .touch-btn-sub {
+      font-size: 8px;
+      font-weight: 700;
+      opacity: 0.82;
+      margin-top: 2px;
+    }
+
+    /* Portrait Orientation Prompt for Mobile Devices */
+    #rotate-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(3, 12, 26, 0.96);
+      backdrop-filter: blur(12px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      gap: 14px;
+    }
+
+    .rotate-icon {
+      font-size: 46px;
+      animation: tiltPhone 1.6s ease-in-out infinite;
+    }
+
+    @keyframes tiltPhone {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-90deg); }
+    }
+
+    @media (max-width: 960px) and (orientation: portrait) {
+      #rotate-overlay.active {
+        display: flex;
+      }
+    }
+
+    /* Compact Landscape Mobile Layout */
+    @media (max-height: 540px), (max-width: 960px) and (orientation: landscape) {
+      #hud {
+        padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+      }
+      .team-block { min-width: 96px; padding: 6px 10px; gap: 6px; }
+      .team-name { font-size: 11px; }
+      .team-tag { display: none; }
+      .team-score { font-size: 20px; }
+      .clock-block { padding: 5px 10px; gap: 8px; }
+      .game-clock { font-size: 17px; min-width: 48px; }
+      .quarter-badge { font-size: 11px; padding: 3px 6px; }
+      .shot-clock-wrap { padding: 2px 7px; min-width: 38px; }
+      .shot-clock { font-size: 13px; }
+      .hud-actions { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+      .hud-btn { padding: 6px 9px; font-size: 10px; border-radius: 8px; }
+      .player-card {
+        min-width: 170px;
+        padding: 7px 10px;
+        margin: 0 auto;
+        border-radius: 10px;
+      }
+      .hud-bottom { justify-content: center; }
+      .player-cap-badge { font-size: 11px; }
+      .cap-num { width: 20px; height: 20px; font-size: 11px; }
+      .controls-pill { display: none; }
+      .modal { padding: 18px 20px; max-height: 92dvh; overflow-y: auto; }
+      .modal h1 { font-size: 28px; }
+      .modal-sub { font-size: 12px; margin-bottom: 12px; }
+      .controls-grid { display: none; }
+      .difficulty-wrap { margin-bottom: 14px; padding: 9px 10px; }
+      .btn-primary, .btn-secondary { padding: 10px 22px; font-size: 13px; }
+    }
+
     @media (max-width: 760px) {
       .controls-pill { display: none; }
       .controls-grid { grid-template-columns: 1fr; }
-      .team-block { min-width: 108px; padding: 8px 10px; }
-      .team-score { font-size: 22px; }
-      .game-clock { font-size: 18px; min-width: 56px; }
+      .team-block { min-width: 92px; padding: 7px 9px; }
+      .team-score { font-size: 20px; }
+      .game-clock { font-size: 17px; min-width: 52px; }
     }
   </style>
 </head>
@@ -666,9 +883,11 @@
 
       <div class="hud-actions">
         <span class="hud-chip" id="hud-tactic-chip"></span>
+        <button class="hud-btn" id="btn-touch" title="Toggle On-Screen Touch Controls">TOUCH: AUTO</button>
         <button class="hud-btn" id="btn-autosw" title="Toggle Auto-Switch">AUTO-SW: ON</button>
         <button class="hud-btn" id="btn-diff" title="Current Difficulty">DIFF: PRO</button>
         <button class="hud-btn" id="btn-sound" title="Toggle Sound">SFX: ON</button>
+        <button class="hud-btn" id="btn-fs" title="Fullscreen">⛶</button>
         <button class="hud-btn" id="btn-pause" title="Pause Match (P / Esc)">PAUSE</button>
       </div>
     </div>
@@ -710,6 +929,43 @@
         <div class="ctrl-item"><span class="kbd">P / Esc</span> Pause</div>
       </div>
     </div>
+  </div>
+
+  <div id="touch-controls">
+    <div class="touch-left">
+      <button class="touch-sprint-pill" id="tb-sprint">SPRINT</button>
+      <div class="joystick-base" id="touch-joystick">
+        <div class="joystick-knob" id="touch-knob"></div>
+      </div>
+    </div>
+
+    <div class="touch-right">
+      <button class="touch-btn touch-btn-sm" id="tb-fake">
+        <span id="tb-fake-label">FAKE</span>
+        <span class="touch-btn-sub" id="tb-fake-sub">BAULK</span>
+      </button>
+      <button class="touch-btn touch-btn-sm" id="tb-lob">
+        <span id="tb-lob-label">LOB</span>
+        <span class="touch-btn-sub" id="tb-lob-sub">HIGH</span>
+      </button>
+      <button class="touch-btn touch-btn-md" id="tb-pass">
+        <span id="tb-pass-label">PASS</span>
+        <span class="touch-btn-sub" id="tb-pass-sub">TEAM</span>
+      </button>
+      <button class="touch-btn touch-btn-lg" id="tb-shoot">
+        <span id="tb-shoot-label">SHOOT</span>
+        <span class="touch-btn-sub" id="tb-shoot-sub">HOLD</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="rotate-overlay" class="active">
+    <div class="rotate-icon">📱</div>
+    <h2>Rotate to Landscape</h2>
+    <p style="color:#94a3b8;font-size:14px;max-width:300px;">
+      WATER POLO 3D plays best in horizontal landscape mode with dual-thumb on-screen controls.
+    </p>
+    <button class="btn-secondary" id="btn-dismiss-rotate">PLAY ANYWAY</button>
   </div>
 
   <div id="event-banner">
@@ -3003,12 +3259,13 @@
 
       updateBroadcastCamera(dt, ball, time) {
         const ballSpeed = Math.hypot(ball.velocity.x, ball.velocity.z);
-        // Subtle zoom out on high ball speed & near corners, zoom slightly closer near goals
+        // Subtle zoom out on high ball speed & near corners; widen slightly for narrower screens
         const speedZoom = THREE.MathUtils.clamp(ballSpeed * 0.18, 0, 2.2);
         const pitchEdgeFactor = Math.abs(ball.position.z) * 0.18;
+        const aspectPad = this.camera.aspect < 1.55 ? (1.55 - this.camera.aspect) * 5.2 : 0;
         const targetX = THREE.MathUtils.clamp(ball.position.x * 0.62, -7.8, 7.8);
-        const targetY = 12.2 + speedZoom * 0.75 + pitchEdgeFactor * 0.4;
-        const targetZ = 18.2 + ball.position.z * 0.25 + speedZoom + pitchEdgeFactor;
+        const targetY = 12.2 + speedZoom * 0.75 + pitchEdgeFactor * 0.4 + aspectPad * 0.65;
+        const targetZ = 18.2 + ball.position.z * 0.25 + speedZoom + pitchEdgeFactor + aspectPad;
 
         const lerpF = Math.min(1, dt * 3.8);
         this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, targetX, lerpF);
@@ -3131,16 +3388,38 @@
         this.waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         this.aimPoint = new THREE.Vector3(6, 0, 0);
 
+        // Mobile & Touch Controller State
+        this.isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches;
+        this.touchMode = 'auto'; // 'auto' | 'on' | 'off'
+        this.touchJoy = { active: false, pointerId: null, x: 0, y: 0, sprint: false };
+        this.touchSprintHeld = false;
+        this.touchShootHeld = false;
+        this.touchShootDownTime = 0;
+        this.manualAimTimer = 0;
+
         this.spaceHeld = false;
         this.spaceDownTime = 0;
         this.chargeRatio = 0;
 
         this.clock = new THREE.Clock();
 
+        this._applyTouchMode();
         this._bindInputAndUI();
+        this._bindTouchControls();
         this._startQuarterSwimOff();
         this._syncHUD();
         this._loop();
+      }
+
+      _isTouchActive() {
+        return this.touchMode === 'on' || (this.touchMode === 'auto' && this.isTouchDevice);
+      }
+
+      _applyTouchMode() {
+        const active = this._isTouchActive();
+        document.body.classList.toggle('touch-enabled', active);
+        const btn = document.getElementById('btn-touch');
+        if (btn) btn.textContent = `TOUCH: ${this.touchMode.toUpperCase()}`;
       }
 
       get diff() {
@@ -3251,6 +3530,29 @@
         const btnSound = document.getElementById('btn-sound');
         const btnDiff = document.getElementById('btn-diff');
         const btnAutoSw = document.getElementById('btn-autosw');
+        const btnTouch = document.getElementById('btn-touch');
+        const btnFs = document.getElementById('btn-fs');
+        const btnDismissRotate = document.getElementById('btn-dismiss-rotate');
+
+        btnTouch.addEventListener('click', () => {
+          const order = ['auto', 'on', 'off'];
+          this.touchMode = order[(order.indexOf(this.touchMode) + 1) % order.length];
+          this._applyTouchMode();
+        });
+
+        btnFs.addEventListener('click', () => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen?.().then(() => {
+              screen.orientation?.lock?.('landscape').catch(() => {});
+            }).catch(() => {});
+          } else {
+            document.exitFullscreen?.().catch(() => {});
+          }
+        });
+
+        btnDismissRotate.addEventListener('click', () => {
+          document.getElementById('rotate-overlay').classList.remove('active');
+        });
 
         btnAutoSw.addEventListener('click', () => {
           this.autoSwitch = !this.autoSwitch;
@@ -3271,6 +3573,9 @@
 
         btnStart.addEventListener('click', () => {
           this.sfx.ensure();
+          if (this.isTouchDevice) {
+            screen.orientation?.lock?.('landscape').catch(() => {});
+          }
           if (this.mode === 'full_time') {
             this.restartMatch();
           } else {
@@ -3302,7 +3607,20 @@
           const rect = this.renderer3D.renderer.domElement.getBoundingClientRect();
           this.mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
           this.mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          this.manualAimTimer = 6.0;
         });
+
+        // Direct touch aim on the 3D pool canvas
+        const canvasEl = this.renderer3D.renderer.domElement;
+        const updateCanvasTouchAim = (e) => {
+          if (e.pointerType !== 'touch') return;
+          const rect = canvasEl.getBoundingClientRect();
+          this.mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          this.mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          this.manualAimTimer = 4.5;
+        };
+        canvasEl.addEventListener('pointerdown', updateCanvasTouchAim);
+        canvasEl.addEventListener('pointermove', updateCanvasTouchAim);
 
         window.addEventListener('keydown', (e) => {
           const code = e.code;
@@ -3400,6 +3718,157 @@
         });
       }
 
+      _bindTouchControls() {
+        const joyEl = document.getElementById('touch-joystick');
+        const knobEl = document.getElementById('touch-knob');
+        const sprintEl = document.getElementById('tb-sprint');
+        const shootEl = document.getElementById('tb-shoot');
+        const passEl = document.getElementById('tb-pass');
+        const lobEl = document.getElementById('tb-lob');
+        const fakeEl = document.getElementById('tb-fake');
+
+        const maxR = 46;
+        const updateJoy = (clientX, clientY) => {
+          const rect = joyEl.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          let dx = clientX - cx;
+          let dy = clientY - cy;
+          const dist = Math.hypot(dx, dy);
+          if (dist > maxR) {
+            dx = (dx / dist) * maxR;
+            dy = (dy / dist) * maxR;
+          }
+          knobEl.style.transform = `translate(${dx}px, ${dy}px)`;
+          const norm = Math.min(1, dist / maxR);
+          this.touchJoy.x = norm > 0.12 ? dx / maxR : 0;
+          this.touchJoy.y = norm > 0.12 ? dy / maxR : 0;
+          this.touchJoy.sprint = norm > 0.88;
+        };
+
+        const resetJoy = () => {
+          this.touchJoy.active = false;
+          this.touchJoy.pointerId = null;
+          this.touchJoy.x = 0;
+          this.touchJoy.y = 0;
+          this.touchJoy.sprint = false;
+          knobEl.style.transform = 'translate(0px, 0px)';
+        };
+
+        joyEl.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          this.sfx.ensure();
+          this.touchJoy.active = true;
+          this.touchJoy.pointerId = e.pointerId;
+          joyEl.setPointerCapture?.(e.pointerId);
+          updateJoy(e.clientX, e.clientY);
+        });
+        joyEl.addEventListener('pointermove', (e) => {
+          if (!this.touchJoy.active || e.pointerId !== this.touchJoy.pointerId) return;
+          updateJoy(e.clientX, e.clientY);
+        });
+        joyEl.addEventListener('pointerup', (e) => {
+          if (e.pointerId === this.touchJoy.pointerId) resetJoy();
+        });
+        joyEl.addEventListener('pointercancel', resetJoy);
+
+        sprintEl.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          this.sfx.ensure();
+          this.touchSprintHeld = true;
+          sprintEl.classList.add('active');
+        });
+        const endSprint = () => {
+          this.touchSprintHeld = false;
+          sprintEl.classList.remove('active');
+        };
+        sprintEl.addEventListener('pointerup', endSprint);
+        sprintEl.addEventListener('pointercancel', endSprint);
+
+        // Primary Action: HOLD/RELEASE SHOOT on offense, STEAL LUNGE on defense
+        shootEl.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          this.sfx.ensure();
+          if (this.mode !== 'playing') return;
+          shootEl.classList.add('active');
+          if (this.controlled.hasBall) {
+            this.touchShootHeld = true;
+            this.touchShootDownTime = performance.now();
+            this.chargeRatio = 0;
+            this.controlled.isCharging = true;
+          } else {
+            this.performStealLunge(this.controlled);
+          }
+        });
+        const endShoot = () => {
+          shootEl.classList.remove('active');
+          if (!this.touchShootHeld) return;
+          this.touchShootHeld = false;
+          this.controlled.isCharging = false;
+          this.controlled.chargeRatio = 0;
+          if (this.mode === 'playing' && this.controlled.hasBall) {
+            const heldMs = performance.now() - this.touchShootDownTime;
+            const power = THREE.MathUtils.clamp(heldMs / 850, 0.42, 1.0);
+            this.performShot(this.controlled, this.aimPoint, power, false);
+          }
+          this.chargeRatio = 0;
+        };
+        shootEl.addEventListener('pointerup', endShoot);
+        shootEl.addEventListener('pointercancel', endShoot);
+
+        // Secondary Action: PASS on offense, SWITCH/CALL PASS on defense
+        passEl.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          this.sfx.ensure();
+          if (this.mode !== 'playing') return;
+          passEl.classList.add('active');
+          if (this.controlled.hasBall) {
+            const target = this._findBestPassTarget(this.controlled);
+            if (target) this.performPass(this.controlled, target);
+            else this.performShot(this.controlled, this.aimPoint, 0.35, false);
+          } else if (this.ball.holder && this.ball.holder.team === TEAM.BLUE && this.ball.holder !== this.controlled) {
+            this.performPass(this.ball.holder, this.controlled);
+          } else {
+            this._switchNearestBlue();
+            this.manualSwitchLockTimer = 2.6;
+          }
+        });
+        passEl.addEventListener('pointerup', () => passEl.classList.remove('active'));
+        passEl.addEventListener('pointercancel', () => passEl.classList.remove('active'));
+
+        // Lob / Cycle button
+        lobEl.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          this.sfx.ensure();
+          if (this.mode !== 'playing') return;
+          lobEl.classList.add('active');
+          if (this.controlled.hasBall) {
+            this.performShot(this.controlled, this.aimPoint, 0.58, true);
+          } else {
+            this._cycleBluePlayer();
+            this.manualSwitchLockTimer = 2.6;
+          }
+        });
+        lobEl.addEventListener('pointerup', () => lobEl.classList.remove('active'));
+        lobEl.addEventListener('pointercancel', () => lobEl.classList.remove('active'));
+
+        // Pump Fake / Nearest Switch button
+        fakeEl.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          this.sfx.ensure();
+          if (this.mode !== 'playing') return;
+          fakeEl.classList.add('active');
+          if (this.controlled.hasBall) {
+            this.performPumpFake(this.controlled);
+          } else {
+            this._switchNearestBlue();
+            this.manualSwitchLockTimer = 2.6;
+          }
+        });
+        fakeEl.addEventListener('pointerup', () => fakeEl.classList.remove('active'));
+        fakeEl.addEventListener('pointercancel', () => fakeEl.classList.remove('active'));
+      }
+
       resumeMatch() {
         const wasMenu = this.mode === 'menu';
         this.mode = 'playing';
@@ -3422,6 +3891,10 @@
           this.mode = 'paused';
           this.keys.clear();
           this.spaceHeld = false;
+          this.touchShootHeld = false;
+          this.touchSprintHeld = false;
+          this.touchJoy.x = 0;
+          this.touchJoy.y = 0;
           this.controlled.isCharging = false;
           title.textContent = 'MATCH PAUSED';
           sub.textContent = 'Adjust difficulty or review tactics before diving back into the pool.';
@@ -3458,7 +3931,31 @@
         this.bannerTimer = duration;
       }
 
-      _updateAimWorldPoint() {
+      _updateAimWorldPoint(dt = 0) {
+        if (this.manualAimTimer > 0) this.manualAimTimer = Math.max(0, this.manualAimTimer - dt);
+
+        // Smart mobile thumb-aim fallback when user hasn't tapped/dragged the pool recently
+        if (this._isTouchActive() && this.manualAimTimer <= 0 && this.controlled) {
+          const jMag = Math.hypot(this.touchJoy.x, this.touchJoy.y);
+          if (this.controlled.hasBall) {
+            const whiteGK = this.whiteTeam[0];
+            const openZ = whiteGK.position.z > 0 ? -1.05 : 1.05;
+            const aimZ = jMag > 0.25 ? THREE.MathUtils.clamp(this.touchJoy.y * 6.5, -5.5, 5.5) : openZ;
+            const aimX = (jMag > 0.25 && this.touchJoy.x < -0.35)
+              ? this.controlled.position.x + this.touchJoy.x * 8
+              : POOL.HALF_X;
+            this.aimPoint.set(aimX, 0, aimZ);
+            return;
+          } else if (jMag > 0.2) {
+            this.aimPoint.set(
+              this.controlled.position.x + this.touchJoy.x * 6,
+              0,
+              this.controlled.position.z + this.touchJoy.y * 6
+            );
+            return;
+          }
+        }
+
         this.raycaster.setFromCamera(this.mouseNDC, this.renderer3D.camera);
         const hit = new THREE.Vector3();
         if (this.raycaster.ray.intersectPlane(this.waterPlane, hit)) {
@@ -3731,22 +4228,24 @@
           return;
         }
 
-        // 8-way camera-relative swimming (Camera looks along -Z, +X is right)
-        let ix = 0;
-        let iz = 0;
+        // 8-way camera-relative swimming (Keyboard + Virtual Touch Joystick)
+        let ix = this.touchJoy.x;
+        let iz = this.touchJoy.y;
         if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) iz -= 1;
         if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) iz += 1;
         if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) ix -= 1;
         if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) ix += 1;
 
-        const hasInput = ix !== 0 || iz !== 0;
-        const sprintKey = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+        const hasInput = Math.hypot(ix, iz) > 0.08;
+        const sprintKey = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSprintHeld || this.touchJoy.sprint;
         p.isSprinting = hasInput && sprintKey && p.stamina > 3;
 
         if (hasInput) {
           const len = Math.hypot(ix, iz);
-          ix /= len;
-          iz /= len;
+          if (len > 1) {
+            ix /= len;
+            iz /= len;
+          }
           // Realistic water polo swim pace (slower & readable)
           let maxSpeed = p.isSprinting ? 3.85 : 2.65;
           if (p.hasBall) maxSpeed *= 0.86;
@@ -3758,7 +4257,7 @@
           p.velocity.z *= Math.exp(-4.6 * dt);
         }
 
-        // Facing: face mouse aim when holding ball or idle; otherwise face swim direction
+        // Facing: face mouse/touch aim when holding ball or idle; otherwise face swim direction
         if (p.hasBall || !hasInput) {
           const aimYaw = Math.atan2(this.aimPoint.z - p.position.z, this.aimPoint.x - p.position.x);
           p.facing = lerpAngle(p.facing, aimYaw, dt * 9.5);
@@ -3767,10 +4266,12 @@
           p.facing = lerpAngle(p.facing, moveYaw, dt * 8.5);
         }
 
-        // Update charge gauge
-        if (this.spaceHeld && p.hasBall) {
-          const heldMs = performance.now() - this.spaceDownTime;
-          this.chargeRatio = heldMs > 170 ? THREE.MathUtils.clamp((heldMs - 170) / 900, 0, 1) : 0;
+        // Update charge gauge (Space or Touch Shoot Hold)
+        if ((this.spaceHeld || this.touchShootHeld) && p.hasBall) {
+          const downTime = this.touchShootHeld ? this.touchShootDownTime : this.spaceDownTime;
+          const heldMs = performance.now() - downTime;
+          const minDelay = this.touchShootHeld ? 60 : 170;
+          this.chargeRatio = heldMs > minDelay ? THREE.MathUtils.clamp((heldMs - minDelay) / 850, 0, 1) : 0;
           p.chargeRatio = this.chargeRatio;
         }
       }
@@ -4133,6 +4634,23 @@
           document.getElementById('power-fill').style.width = `${pwr}%`;
           document.getElementById('hud-power-pct').textContent =
             pwr > 0 ? `${pwr}% POWER` : (this.controlled.hasBall ? 'SPACE: PASS/SHOT • R: LOB • RMB: FAKE' : 'E: SWITCH • F: STEAL');
+
+          // Sync context-aware Mobile Touch Pad labels
+          const shootBtn = document.getElementById('tb-shoot');
+          const lobBtn = document.getElementById('tb-lob');
+          const fakeBtn = document.getElementById('tb-fake');
+          const hasBall = this.controlled.hasBall;
+          shootBtn.classList.toggle('defense-mode', !hasBall);
+          document.getElementById('tb-shoot-label').textContent = hasBall ? 'SHOOT' : 'STEAL';
+          document.getElementById('tb-shoot-sub').textContent = hasBall ? (pwr > 0 ? `${pwr}%` : 'HOLD') : 'LUNGE';
+          document.getElementById('tb-pass-label').textContent = hasBall ? 'PASS' : 'SWITCH';
+          document.getElementById('tb-pass-sub').textContent = hasBall ? 'TEAM' : 'NEAREST';
+          document.getElementById('tb-lob-label').textContent = hasBall ? 'LOB' : 'CYCLE';
+          document.getElementById('tb-lob-sub').textContent = hasBall ? 'HIGH' : 'NEXT';
+          lobBtn.style.opacity = '1';
+          fakeBtn.style.opacity = hasBall ? '1' : '0.45';
+          document.getElementById('tb-fake-label').textContent = hasBall ? 'FAKE' : 'NEAR';
+          document.getElementById('tb-fake-sub').textContent = hasBall ? 'BAULK' : 'DEF';
         }
       }
 
@@ -4150,7 +4668,7 @@
 
         if (this.mode === 'playing') {
           this._updateAutoSwitch(dt);
-          this._updateAimWorldPoint();
+          this._updateAimWorldPoint(dt);
           this._updateControlledPlayer(dt);
           this.ai.update(dt, this);
           this._stepSwimmerPhysics(dt);
@@ -4190,7 +4708,7 @@
           passTarget,
           this.aimPoint,
           this.chargeRatio,
-          this.spaceHeld,
+          this.spaceHeld || this.touchShootHeld,
           this.matchElapsed
         );
         this.renderer3D.render();
