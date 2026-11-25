@@ -1,0 +1,4210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WATER POLO 3D — Olympic Water Polo</title>
+  <style>
+    :root {
+      --bg-dark: rgba(7, 18, 34, 0.84);
+      --bg-glass: rgba(10, 25, 47, 0.72);
+      --border-glass: rgba(120, 210, 255, 0.25);
+      --blue-team: #1e6de8;
+      --white-team: #f4f1ea;
+      --accent-cyan: #22d3ee;
+      --accent-gold: #fbbf24;
+      --danger: #ef4444;
+      --success: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #04101f;
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: var(--text-main);
+    }
+
+    #webgl-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    /* Broadcast Top HUD */
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 24px;
+      z-index: 10;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .scoreboard {
+      display: flex;
+      align-items: stretch;
+      background: var(--bg-dark);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .team-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 18px;
+      min-width: 145px;
+    }
+
+    .team-block.blue {
+      border-left: 5px solid var(--blue-team);
+    }
+
+    .team-block.white {
+      border-right: 5px solid var(--white-team);
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .team-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .team-name {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .team-tag {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .team-score {
+      font-size: 28px;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      margin-left: auto;
+    }
+
+    .team-block.white .team-score {
+      margin-left: 0;
+      margin-right: auto;
+    }
+
+    .possession-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-gold);
+      box-shadow: 0 0 10px var(--accent-gold);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .team-block.has-ball .possession-dot {
+      opacity: 1;
+    }
+
+    .clock-block {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 18px;
+      background: rgba(15, 34, 62, 0.9);
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .quarter-badge {
+      background: rgba(34, 211, 238, 0.16);
+      border: 1px solid rgba(34, 211, 238, 0.45);
+      color: var(--accent-cyan);
+      font-weight: 800;
+      font-size: 13px;
+      padding: 4px 9px;
+      border-radius: 6px;
+      letter-spacing: 0.8px;
+    }
+
+    .game-clock {
+      font-size: 24px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 1px;
+      min-width: 72px;
+      text-align: center;
+    }
+
+    .shot-clock-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px 10px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 48px;
+    }
+
+    .shot-clock-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+    }
+
+    .shot-clock {
+      font-size: 16px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-gold);
+    }
+
+    .shot-clock.low {
+      color: var(--danger);
+      animation: pulseText 0.6s infinite alternate;
+    }
+
+    @keyframes pulseText {
+      from { opacity: 1; }
+      to { opacity: 0.45; }
+    }
+
+    .hud-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .hud-chip {
+      display: none;
+      background: rgba(251, 191, 36, 0.16);
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      color: #fde68a;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+    }
+
+    .hud-chip.visible {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-chip.danger {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.65);
+      color: #fecaca;
+    }
+
+    .hud-chip.counter {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.65);
+      color: #a7f3d0;
+    }
+
+    .difficulty-wrap {
+      margin: 0 auto 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .difficulty-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .difficulty-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .diff-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #cbd5e1;
+      padding: 9px 10px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .diff-btn:hover {
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    .diff-btn.active {
+      background: linear-gradient(135deg, rgba(30, 109, 232, 0.65), rgba(8, 145, 178, 0.7));
+      border-color: var(--accent-cyan);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(34, 211, 238, 0.25);
+    }
+
+    .diff-desc {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .hud-btn {
+      background: var(--bg-dark);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-glass);
+      color: var(--text-main);
+      padding: 9px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .hud-btn:hover {
+      background: rgba(30, 109, 232, 0.45);
+      border-color: var(--accent-cyan);
+    }
+
+    /* Center Event Banner */
+    #event-banner {
+      position: fixed;
+      top: 22%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: linear-gradient(135deg, rgba(10, 28, 56, 0.94), rgba(14, 116, 144, 0.9));
+      border: 2px solid var(--accent-cyan);
+      padding: 16px 40px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 15;
+    }
+
+    #event-banner.visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    #event-title {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      text-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    #event-subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #cbd5e1;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Bottom HUD: Player Card + Controls Hint */
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+    }
+
+    .player-card {
+      background: var(--bg-dark);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 12px 16px;
+      min-width: 240px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    }
+
+    .player-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .player-cap-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .cap-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--blue-team);
+      border: 2px solid #93c5fd;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .player-role {
+      font-size: 11px;
+      color: var(--accent-cyan);
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+
+    .bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      transition: width 0.08s linear;
+    }
+
+    #stamina-fill {
+      background: linear-gradient(90deg, #06b6d4, #22d3ee);
+    }
+
+    #power-fill {
+      width: 0%;
+      background: linear-gradient(90deg, #10b981, #fbbf24, #ef4444);
+    }
+
+    .controls-pill {
+      background: var(--bg-glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      font-size: 11px;
+      color: #cbd5e1;
+      max-width: 680px;
+    }
+
+    .ctrl-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .kbd {
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 5px;
+      padding: 2px 6px;
+      font-weight: 700;
+      font-size: 10px;
+      color: #fff;
+    }
+
+    /* Start / Pause / Full-Time Overlay */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(6, 24, 48, 0.72), rgba(2, 9, 20, 0.92));
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      transition: opacity 0.25s ease;
+    }
+
+    #overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .modal {
+      width: min(680px, 92vw);
+      background: rgba(9, 23, 44, 0.94);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 20px;
+      padding: 32px 36px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65);
+      text-align: center;
+    }
+
+    .modal-kicker {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: var(--accent-cyan);
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    .modal h1 {
+      font-size: 44px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #ffffff 0%, #38bdf8 55%, #0ea5e9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .modal-sub {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 22px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      text-align: left;
+      margin-bottom: 26px;
+    }
+
+    .control-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-box span {
+      color: #cbd5e1;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #1e6de8, #0891b2);
+      color: #fff;
+      border: none;
+      padding: 14px 34px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 10px 26px rgba(14, 165, 233, 0.35);
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.1);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .final-score-box {
+      display: none;
+      margin: 0 auto 20px;
+      padding: 14px 24px;
+      background: rgba(15, 34, 62, 0.8);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .final-score-box.visible {
+      display: inline-flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    @media (max-width: 760px) {
+      .controls-pill { display: none; }
+      .controls-grid { grid-template-columns: 1fr; }
+      .team-block { min-width: 108px; padding: 8px 10px; }
+      .team-score { font-size: 22px; }
+      .game-clock { font-size: 18px; min-width: 56px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="webgl-container"></div>
+
+  <div id="hud">
+    <div class="hud-top">
+      <div class="scoreboard">
+        <div class="team-block blue" id="team-blue-box">
+          <div class="team-meta">
+            <div class="team-name">BLUE</div>
+            <div class="team-tag">YOU &bull; L &rarr; R</div>
+          </div>
+          <div class="possession-dot"></div>
+          <div class="team-score" id="score-blue">0</div>
+        </div>
+
+        <div class="clock-block">
+          <div class="quarter-badge" id="quarter-label">Q1</div>
+          <div class="game-clock" id="game-clock">02:00</div>
+          <div class="shot-clock-wrap">
+            <span class="shot-clock-label">SHOT</span>
+            <span class="shot-clock" id="shot-clock">30</span>
+          </div>
+        </div>
+
+        <div class="team-block white" id="team-white-box">
+          <div class="team-meta">
+            <div class="team-name">WHITE</div>
+            <div class="team-tag">CPU &bull; R &rarr; L</div>
+          </div>
+          <div class="possession-dot"></div>
+          <div class="team-score" id="score-white">0</div>
+        </div>
+      </div>
+
+      <div class="hud-actions">
+        <span class="hud-chip" id="hud-tactic-chip"></span>
+        <button class="hud-btn" id="btn-autosw" title="Toggle Auto-Switch">AUTO-SW: ON</button>
+        <button class="hud-btn" id="btn-diff" title="Current Difficulty">DIFF: PRO</button>
+        <button class="hud-btn" id="btn-sound" title="Toggle Sound">SFX: ON</button>
+        <button class="hud-btn" id="btn-pause" title="Pause Match (P / Esc)">PAUSE</button>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="player-card">
+        <div class="player-card-header">
+          <div class="player-cap-badge">
+            <span class="cap-num" id="hud-cap-num">7</span>
+            <span id="hud-player-name">CENTER FORWARD</span>
+          </div>
+          <span class="player-role" id="hud-action-state">ATTACK</span>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">
+            <span>Stamina</span>
+            <span id="hud-stamina-pct">100%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="stamina-fill"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">
+            <span>Shot Power</span>
+            <span id="hud-power-pct">TAP PASS / HOLD SHOT</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="power-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="controls-pill">
+        <div class="ctrl-item"><span class="kbd">WASD / Arrows</span> Swim</div>
+        <div class="ctrl-item"><span class="kbd">Shift</span> Sprint</div>
+        <div class="ctrl-item"><span class="kbd">Mouse</span> Aim</div>
+        <div class="ctrl-item"><span class="kbd">Space</span> Tap Pass / Hold Shot</div>
+        <div class="ctrl-item"><span class="kbd">R</span> Lob Shot</div>
+        <div class="ctrl-item"><span class="kbd">RMB / B</span> Pump Fake</div>
+        <div class="ctrl-item"><span class="kbd">E / Q</span> Switch / Call Pass</div>
+        <div class="ctrl-item"><span class="kbd">F</span> Steal</div>
+        <div class="ctrl-item"><span class="kbd">P / Esc</span> Pause</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="event-banner">
+    <div id="event-title">GOAL!</div>
+    <div id="event-subtitle">BLUE TEAM SCORES</div>
+  </div>
+
+  <div id="overlay">
+    <div class="modal">
+      <div class="modal-kicker">7v7 Olympic Water Polo</div>
+      <h1 id="overlay-title">WATER POLO 3D</h1>
+      <p class="modal-sub" id="overlay-sub">
+        Lead Team Blue from left to right across a 25m Olympic arena. Swim lanes, pass with precision, skip shots off the turquoise water, and shut down White's attack.
+      </p>
+
+      <div class="final-score-box" id="final-score-box">
+        <span style="color:#60a5fa">BLUE <span id="final-blue">0</span></span>
+        <span style="color:#94a3b8;font-size:16px">VS</span>
+        <span style="color:#f4f1ea"><span id="final-white">0</span> WHITE</span>
+      </div>
+
+      <div class="difficulty-wrap">
+        <div class="difficulty-label">Match Difficulty</div>
+        <div class="difficulty-bar">
+          <button class="diff-btn" data-diff="rookie">ROOKIE</button>
+          <button class="diff-btn active" data-diff="pro">PRO</button>
+          <button class="diff-btn" data-diff="olympic">OLYMPIC</button>
+        </div>
+        <div class="diff-desc" id="diff-desc">Balanced tactical 3-3 sets, smart counter-attacks, and authentic water polo pacing.</div>
+      </div>
+
+      <div class="controls-grid">
+        <div class="control-box"><span>Swim 8 Directions</span><span class="kbd">WASD / Arrows</span></div>
+        <div class="control-box"><span>Sprint (Counter / Recover)</span><span class="kbd">Shift</span></div>
+        <div class="control-box"><span>3D Aim Direction</span><span class="kbd">Mouse Cursor</span></div>
+        <div class="control-box"><span>Pass (Tap) / Skip-Drive Shot (Hold)</span><span class="kbd">Space</span></div>
+        <div class="control-box"><span>Lob Shot / Pump Fake (Baulk)</span><span class="kbd">R / RMB or B</span></div>
+        <div class="control-box"><span>Nearest / Cycle / Steal Lunge</span><span class="kbd">E / Q / F</span></div>
+      </div>
+
+      <div class="modal-buttons">
+        <button class="btn-primary" id="btn-start">DIVE IN</button>
+        <button class="btn-secondary" id="btn-restart" style="display:none;">RESTART MATCH</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.169.0/build/three.module.js';
+
+    // =========================================================================
+    // CONSTANTS & MATCH CONFIG
+    // =========================================================================
+    const POOL = {
+      LENGTH: 25,       // x: -12.5 to +12.5
+      WIDTH: 20,        // z: -10.0 to +10.0
+      DEPTH: 2.0,       // y: -2.0 to 0.0
+      HALF_X: 12.5,
+      HALF_Z: 10.0,
+      GOAL_HALF_W: 1.5, // 3.0m wide goal mouth
+      GOAL_H: 0.92,     // 0.9m crossbar above water
+      GOAL_DEPTH: 0.95,
+    };
+
+    const TEAM = { BLUE: 'blue', WHITE: 'white' };
+    const ROLE_NAMES = [
+      'GOALKEEPER',
+      'LEFT DRIVER',
+      'RIGHT DRIVER',
+      'POINT',
+      'LEFT WING',
+      'RIGHT WING',
+      'CENTER FORWARD'
+    ];
+
+    const DIFFICULTY_PROFILES = {
+      rookie: {
+        label: 'ROOKIE',
+        desc: 'Relaxed swim pace, forgiving defense, and slower opponent reactions.',
+        aiSpeedMult: 0.84,
+        decisionCd: 1.55,
+        windupTime: 0.72,
+        stealAttemptRate: 0.35,
+        gkReactMult: 0.76,
+        passInterceptRadius: 0.52,
+        shotAccuracyJitter: 0.70,
+        counterAwareness: 0.45,
+        fakeChance: 0.12,
+      },
+      pro: {
+        label: 'PRO',
+        desc: 'Balanced tactical 3-3 sets, smart counter-attacks, and authentic water polo pacing.',
+        aiSpeedMult: 0.98,
+        decisionCd: 1.05,
+        windupTime: 0.56,
+        stealAttemptRate: 0.85,
+        gkReactMult: 1.0,
+        passInterceptRadius: 0.76,
+        shotAccuracyJitter: 0.28,
+        counterAwareness: 0.82,
+        fakeChance: 0.38,
+      },
+      olympic: {
+        label: 'OLYMPIC',
+        desc: 'Relentless M-zone press, passing-lane steals, pump-fake baits, and clinical counters.',
+        aiSpeedMult: 1.12,
+        decisionCd: 0.72,
+        windupTime: 0.44,
+        stealAttemptRate: 1.35,
+        gkReactMult: 1.24,
+        passInterceptRadius: 0.96,
+        shotAccuracyJitter: 0.10,
+        counterAwareness: 1.0,
+        fakeChance: 0.65,
+      }
+    };
+
+    // =========================================================================
+    // PROCEDURAL AUDIO SYNTHESIZER (Zero external files)
+    // =========================================================================
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      ensure() {
+        if (!this.enabled) return null;
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return null;
+          this.ctx = new AudioCtx();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        return this.ctx;
+      }
+
+      playSplash(intensity = 0.6) {
+        const ctx = this.ensure();
+        if (!ctx) return;
+        const duration = 0.18 + intensity * 0.16;
+        const bufferSize = Math.floor(ctx.sampleRate * duration);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          const env = Math.pow(1 - i / bufferSize, 1.6);
+          data[i] = (Math.random() * 2 - 1) * env * 0.35 * intensity;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(650 + intensity * 400, ctx.currentTime);
+        filter.Q.value = 0.9;
+
+        const gain = ctx.createGain();
+        gain.gain.value = 0.35 * intensity;
+
+        src.connect(filter).connect(gain).connect(ctx.destination);
+        src.start();
+      }
+
+      playThrow(power = 0.7) {
+        const ctx = this.ensure();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160 + power * 120, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.12);
+        gain.gain.setValueAtTime(0.24 * (0.5 + power * 0.5), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.14);
+      }
+
+      playClang() {
+        const ctx = this.ensure();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        [520, 790, 1180].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(0.14 / (idx + 1), now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.46);
+        });
+      }
+
+      playWhistle(double = false) {
+        const ctx = this.ensure();
+        if (!ctx) return;
+        const blast = (offset, dur) => {
+          const now = ctx.currentTime + offset;
+          const osc = ctx.createOscillator();
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(2850, now);
+          lfo.frequency.setValueAtTime(38, now);
+          lfoGain.gain.value = 95;
+          lfo.connect(lfoGain).connect(osc.frequency);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.12, now + 0.02);
+          gain.gain.setValueAtTime(0.12, now + dur - 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(now);
+          lfo.start(now);
+          osc.stop(now + dur + 0.02);
+          lfo.stop(now + dur + 0.02);
+        };
+        blast(0, 0.24);
+        if (double) blast(0.3, 0.35);
+      }
+
+      playGoalHorn() {
+        const ctx = this.ensure();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        [146.8, 220, 293.6].forEach((f) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(f, now);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.09, now + 0.05);
+          gain.gain.setValueAtTime(0.08, now + 0.55);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.88);
+        });
+      }
+    }
+
+    // =========================================================================
+    // PROCEDURAL TEXTURE HELPERS
+    // =========================================================================
+    function createPoolTileTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const g = c.getContext('2d');
+      g.fillStyle = '#0c7091';
+      g.fillRect(0, 0, 512, 512);
+      const step = 32;
+      for (let y = 0; y < 512; y += step) {
+        for (let x = 0; x < 512; x += step) {
+          const shade = ((x / step + y / step) % 2 === 0) ? '#0e7fa3' : '#0b6a8a';
+          g.fillStyle = shade;
+          g.fillRect(x + 1, y + 1, step - 2, step - 2);
+        }
+      }
+      g.strokeStyle = 'rgba(200, 245, 255, 0.16)';
+      g.lineWidth = 2;
+      for (let i = 0; i <= 512; i += step) {
+        g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 512); g.stroke();
+        g.beginPath(); g.moveTo(0, i); g.lineTo(512, i); g.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(10, 8);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function createDeckTileTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = '#cfd8dc';
+      g.fillRect(0, 0, 256, 256);
+      const step = 32;
+      for (let y = 0; y < 256; y += step) {
+        for (let x = 0; x < 256; x += step) {
+          const v = 205 + ((x * 7 + y * 13) % 14);
+          g.fillStyle = `rgb(${v}, ${v + 5}, ${v + 8})`;
+          g.fillRect(x + 1, y + 1, step - 2, step - 2);
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(16, 12);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function createCausticsTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const g = c.getContext('2d');
+      g.fillStyle = '#000000';
+      g.fillRect(0, 0, 512, 512);
+
+      // Layered bright aquatic caustic web
+      for (let i = 0; i < 85; i++) {
+        const cx = Math.random() * 512;
+        const cy = Math.random() * 512;
+        const rx = 26 + Math.random() * 44;
+        const ry = 20 + Math.random() * 38;
+        const rot = Math.random() * Math.PI;
+        for (const ox of [-512, 0, 512]) {
+          for (const oy of [-512, 0, 512]) {
+            g.save();
+            g.translate(cx + ox, cy + oy);
+            g.rotate(rot);
+            g.strokeStyle = 'rgba(130, 245, 255, 0.24)';
+            g.lineWidth = 2.5 + Math.random() * 2;
+            g.beginPath();
+            g.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+            g.stroke();
+            g.restore();
+          }
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(4, 3);
+      return tex;
+    }
+
+    function createCapTexture(colorHex, number, isGK) {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 128;
+      const g = c.getContext('2d');
+
+      const bg = isGK ? '#e11d48' : colorHex;
+      g.fillStyle = bg;
+      g.fillRect(0, 0, 256, 128);
+
+      // Center racing stripe
+      const isLight = bg.toLowerCase() === '#f4f1ea';
+      g.fillStyle = isLight ? '#1e293b' : '#ffffff';
+      g.fillRect(114, 0, 28, 128);
+
+      // Side numbers visible from broadcast & front/back
+      const numStr = String(number);
+      g.font = '900 54px Inter, Segoe UI, Arial, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = isLight ? '#0f172a' : '#ffffff';
+      g.strokeStyle = isLight ? '#ffffff' : '#0f172a';
+      g.lineWidth = 5;
+
+      for (const px of [54, 202]) {
+        g.strokeText(numStr, px, 72);
+        g.fillText(numStr, px, 72);
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function createWaterPoloBallTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = '#facc15';
+      g.fillRect(0, 0, 512, 256);
+
+      // Classic water polo ribs & colored panels
+      g.fillStyle = '#0284c7';
+      g.fillRect(0, 0, 512, 34);
+      g.fillRect(0, 222, 512, 34);
+
+      g.strokeStyle = '#a16207';
+      g.lineWidth = 4;
+      for (let x = 0; x < 512; x += 64) {
+        g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke();
+      }
+      for (let y = 34; y < 256; y += 64) {
+        g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke();
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    // =========================================================================
+    // POOL ARENA (Stadium, Pool, Markers, Goals, Animated Water & Splash Pool)
+    // =========================================================================
+    class PoolArena {
+      constructor(scene) {
+        this.scene = scene;
+        this.group = new THREE.Group();
+        this.scene.add(this.group);
+
+        this.waterMesh = null;
+        this.waterBasePos = null;
+        this.causticsMesh = null;
+        this.causticsTex = null;
+        this.ripples = [];      // Active water disturbances { x, z, radius, amp, age, maxAge }
+        this.splashRings = [];  // Pooled 3D wake rings
+        this.droplets = [];     // Pooled 3D water spray particles
+
+        this._buildPoolBasin();
+        this._buildDeckAndStartingBlocks();
+        this._buildBoundaryMarkersAndRopes();
+        this._buildGoalCages();
+        this._buildStadiumSeatingAndFloodlights();
+        this._buildWaterAndCaustics();
+        this._initSplashEffects();
+      }
+
+      _buildPoolBasin() {
+        const tileTex = createPoolTileTexture();
+        const wallMat = new THREE.MeshStandardMaterial({
+          map: tileTex,
+          roughness: 0.35,
+          metalness: 0.05,
+        });
+
+        // Pool Floor (y = -2.0)
+        const floor = new THREE.Mesh(
+          new THREE.PlaneGeometry(POOL.LENGTH, POOL.WIDTH),
+          wallMat
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -POOL.DEPTH;
+        floor.receiveShadow = true;
+        this.group.add(floor);
+
+        // Floor lane lines & center line
+        const lineMat = new THREE.MeshBasicMaterial({ color: 0x062c43 });
+        for (let z = -7.5; z <= 7.5; z += 2.5) {
+          const lane = new THREE.Mesh(new THREE.PlaneGeometry(POOL.LENGTH - 2.4, 0.16), lineMat);
+          lane.rotation.x = -Math.PI / 2;
+          lane.position.set(0, -POOL.DEPTH + 0.008, z);
+          this.group.add(lane);
+        }
+        const midLine = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.18, POOL.WIDTH),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 })
+        );
+        midLine.rotation.x = -Math.PI / 2;
+        midLine.position.set(0, -POOL.DEPTH + 0.01, 0);
+        this.group.add(midLine);
+
+        // 4 Pool Walls (extend from -2.0 to +0.28)
+        const wallH = POOL.DEPTH + 0.28;
+        const wallY = -POOL.DEPTH + wallH / 2;
+
+        const northWall = new THREE.Mesh(new THREE.BoxGeometry(POOL.LENGTH + 0.4, wallH, 0.25), wallMat);
+        northWall.position.set(0, wallY, -POOL.HALF_Z - 0.125);
+        northWall.receiveShadow = true;
+        this.group.add(northWall);
+
+        const southWall = northWall.clone();
+        southWall.position.z = POOL.HALF_Z + 0.125;
+        this.group.add(southWall);
+
+        const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, wallH, POOL.WIDTH), wallMat);
+        westWall.position.set(-POOL.HALF_X - 0.125, wallY, 0);
+        westWall.receiveShadow = true;
+        this.group.add(westWall);
+
+        const eastWall = westWall.clone();
+        eastWall.position.x = POOL.HALF_X + 0.125;
+        this.group.add(eastWall);
+      }
+
+      _buildDeckAndStartingBlocks() {
+        const deckTex = createDeckTileTexture();
+        const deckMat = new THREE.MeshStandardMaterial({
+          map: deckTex,
+          roughness: 0.65,
+          metalness: 0.05,
+        });
+
+        const deckY = 0.22;
+        const deckThickness = 0.44;
+        const sideDeckW = 7.5;
+        const endDeckL = 6.5;
+
+        // North & South Decks
+        const northDeck = new THREE.Mesh(
+          new THREE.BoxGeometry(POOL.LENGTH + endDeckL * 2, deckThickness, sideDeckW),
+          deckMat
+        );
+        northDeck.position.set(0, deckY - deckThickness / 2, -POOL.HALF_Z - sideDeckW / 2 - 0.2);
+        northDeck.receiveShadow = true;
+        this.group.add(northDeck);
+
+        const southDeck = northDeck.clone();
+        southDeck.position.z = POOL.HALF_Z + sideDeckW / 2 + 0.2;
+        this.group.add(southDeck);
+
+        // West & East Decks
+        const westDeck = new THREE.Mesh(
+          new THREE.BoxGeometry(endDeckL, deckThickness, POOL.WIDTH + 0.4),
+          deckMat
+        );
+        westDeck.position.set(-POOL.HALF_X - endDeckL / 2 - 0.2, deckY - deckThickness / 2, 0);
+        westDeck.receiveShadow = true;
+        this.group.add(westDeck);
+
+        const eastDeck = westDeck.clone();
+        eastDeck.position.x = POOL.HALF_X + endDeckL / 2 + 0.2;
+        this.group.add(eastDeck);
+
+        // White coping rim around the pool edge
+        const copingMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.4 });
+        const copingN = new THREE.Mesh(new THREE.BoxGeometry(POOL.LENGTH + 0.7, 0.12, 0.36), copingMat);
+        copingN.position.set(0, 0.26, -POOL.HALF_Z - 0.18);
+        this.group.add(copingN);
+        const copingS = copingN.clone();
+        copingS.position.z = POOL.HALF_Z + 0.18;
+        this.group.add(copingS);
+
+        const copingW = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.12, POOL.WIDTH + 0.72), copingMat);
+        copingW.position.set(-POOL.HALF_X - 0.18, 0.26, 0);
+        this.group.add(copingW);
+        const copingE = copingW.clone();
+        copingE.position.x = POOL.HALF_X + 0.18;
+        this.group.add(copingE);
+
+        // Olympic Starting Blocks at both ends
+        const pedMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35, metalness: 0.3 });
+        const topMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+        const blockZ = [-7.5, -5.0, -2.5, 2.5, 5.0, 7.5];
+        for (const side of [-1, 1]) {
+          for (const z of blockZ) {
+            const blk = new THREE.Group();
+            const ped = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.48, 0.52), pedMat);
+            ped.position.y = 0.24;
+            ped.castShadow = true;
+            ped.receiveShadow = true;
+            const plate = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.08, 0.56), topMat);
+            plate.position.set(-side * 0.06, 0.5, 0);
+            plate.rotation.z = side * 0.14;
+            plate.castShadow = true;
+            blk.add(ped, plate);
+            blk.position.set(side * (POOL.HALF_X + 0.7), 0.24, z);
+            this.group.add(blk);
+          }
+        }
+      }
+
+      _buildBoundaryMarkersAndRopes() {
+        // Water polo field markers: Red 2m, Yellow 6m, White center on BOTH sides
+        const markerDefs = [
+          { x: -POOL.HALF_X + 2, color: 0xef4444, label: '2m' },
+          { x: -POOL.HALF_X + 6, color: 0xfacc15, label: '6m' },
+          { x: 0,                color: 0xffffff, label: 'MID' },
+          { x: POOL.HALF_X - 6,  color: 0xfacc15, label: '6m' },
+          { x: POOL.HALF_X - 2,  color: 0xef4444, label: '2m' },
+        ];
+
+        for (const m of markerDefs) {
+          const mat = new THREE.MeshStandardMaterial({
+            color: m.color,
+            emissive: m.color,
+            emissiveIntensity: 0.25,
+            roughness: 0.35,
+          });
+          for (const zSign of [-1, 1]) {
+            // Deck cone/pylon marker
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.52, 12), mat);
+            cone.position.set(m.x, 0.52, zSign * (POOL.HALF_Z + 0.55));
+            cone.castShadow = true;
+            this.group.add(cone);
+
+            // Subtle floating line ribbon near surface
+            const strip = new THREE.Mesh(
+              new THREE.BoxGeometry(0.1, 0.03, 0.55),
+              mat
+            );
+            strip.position.set(m.x, 0.03, zSign * (POOL.HALF_Z - 0.3));
+            this.group.add(strip);
+          }
+        }
+
+        // Floating Lane / Sideline Boundary Ropes (along North & South sidelines + back-end lanes)
+        const floatGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.16, 10);
+        floatGeo.rotateZ(Math.PI / 2);
+
+        const matRed = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.35 });
+        const matYellow = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
+        const matGreen = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.35 });
+        const matWhite = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 });
+        const ropeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
+
+        for (const zPos of [-POOL.HALF_Z + 0.18, POOL.HALF_Z - 0.18]) {
+          // Continuous core cable
+          const cable = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.015, 0.015, POOL.LENGTH, 8),
+            ropeMat
+          );
+          cable.rotation.z = Math.PI / 2;
+          cable.position.set(0, 0.02, zPos);
+          this.group.add(cable);
+
+          // Colored floats following Water Polo rules (Red 0-2m, Yellow 2-6m, Green/White middle)
+          for (let x = -POOL.HALF_X + 0.25; x <= POOL.HALF_X - 0.25; x += 0.26) {
+            const distEnd = POOL.HALF_X - Math.abs(x);
+            let fMat = matGreen;
+            if (distEnd <= 2.0) fMat = matRed;
+            else if (distEnd <= 6.0) fMat = matYellow;
+            else if (Math.abs(x) < 0.4) fMat = matWhite;
+
+            const fl = new THREE.Mesh(floatGeo, fMat);
+            fl.position.set(x, 0.02, zPos);
+            fl.castShadow = true;
+            this.group.add(fl);
+          }
+        }
+      }
+
+      _buildGoalCages() {
+        const postMat = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.25,
+          metalness: 0.2,
+        });
+        const floatBaseMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 });
+        const netMat = new THREE.MeshBasicMaterial({
+          color: 0xe2e8f0,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.45,
+        });
+
+        for (const side of [-1, 1]) {
+          const goal = new THREE.Group();
+          const gx = side * POOL.HALF_X;
+          const backX = side * (POOL.HALF_X + POOL.GOAL_DEPTH);
+          const hw = POOL.GOAL_HALF_W;
+          const h = POOL.GOAL_H;
+
+          // Front posts
+          const postGeo = new THREE.CylinderGeometry(0.045, 0.045, h + 0.1, 12);
+          const postL = new THREE.Mesh(postGeo, postMat);
+          postL.position.set(gx, h / 2 - 0.02, -hw);
+          postL.castShadow = true;
+
+          const postR = postL.clone();
+          postR.position.z = hw;
+
+          // Crossbar
+          const barGeo = new THREE.CylinderGeometry(0.045, 0.045, hw * 2 + 0.09, 12);
+          barGeo.rotateX(Math.PI / 2);
+          const crossbar = new THREE.Mesh(barGeo, postMat);
+          crossbar.position.set(gx, h, 0);
+          crossbar.castShadow = true;
+
+          // Rear support frame
+          const backPostL = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, h, 8), postMat);
+          backPostL.position.set(backX, h / 2 - 0.02, -hw);
+          const backPostR = backPostL.clone();
+          backPostR.position.z = hw;
+
+          const backBar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, hw * 2, 8), postMat);
+          backBar.rotation.x = Math.PI / 2;
+          backBar.position.set(backX, h, 0);
+
+          // Top & bottom side rails
+          for (const sz of [-hw, hw]) {
+            const topSide = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.028, 0.028, POOL.GOAL_DEPTH, 8),
+              postMat
+            );
+            topSide.rotation.z = Math.PI / 2;
+            topSide.position.set((gx + backX) / 2, h, sz);
+
+            const floatSide = new THREE.Mesh(
+              new THREE.BoxGeometry(POOL.GOAL_DEPTH, 0.09, 0.12),
+              floatBaseMat
+            );
+            floatSide.position.set((gx + backX) / 2, 0.01, sz);
+            goal.add(topSide, floatSide);
+          }
+
+          // Net meshes (back, top, left, right)
+          const backNet = new THREE.Mesh(new THREE.PlaneGeometry(hw * 2, h, 14, 6), netMat);
+          backNet.rotation.y = Math.PI / 2;
+          backNet.position.set(backX, h / 2, 0);
+
+          const topNet = new THREE.Mesh(new THREE.PlaneGeometry(POOL.GOAL_DEPTH, hw * 2, 5, 14), netMat);
+          topNet.rotation.x = Math.PI / 2;
+          topNet.position.set((gx + backX) / 2, h, 0);
+
+          const sideNetGeo = new THREE.PlaneGeometry(POOL.GOAL_DEPTH, h, 5, 6);
+          const leftNet = new THREE.Mesh(sideNetGeo, netMat);
+          leftNet.position.set((gx + backX) / 2, h / 2, -hw);
+          const rightNet = new THREE.Mesh(sideNetGeo, netMat);
+          rightNet.position.set((gx + backX) / 2, h / 2, hw);
+
+          goal.add(postL, postR, crossbar, backPostL, backPostR, backBar, backNet, topNet, leftNet, rightNet);
+          this.group.add(goal);
+        }
+      }
+
+      _buildStadiumSeatingAndFloodlights() {
+        const concreteMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
+        const seatMatBlue = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.6 });
+        const seatMatCyan = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.6 });
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6, roughness: 0.3 });
+
+        // North Main Grandstand (facing camera, visible across pool)
+        const tiers = 6;
+        for (let t = 0; t < tiers; t++) {
+          const stepH = 0.72;
+          const stepD = 1.15;
+          const y = 0.55 + t * stepH;
+          const z = -POOL.HALF_Z - 6.8 - t * stepD;
+
+          const riser = new THREE.Mesh(new THREE.BoxGeometry(36, stepH, stepD), concreteMat);
+          riser.position.set(0, y, z);
+          riser.receiveShadow = true;
+          this.group.add(riser);
+
+          const bench = new THREE.Mesh(
+            new THREE.BoxGeometry(35.2, 0.14, 0.55),
+            t % 2 === 0 ? seatMatBlue : seatMatCyan
+          );
+          bench.position.set(0, y + stepH / 2 + 0.08, z + 0.15);
+          this.group.add(bench);
+        }
+
+        // Arena backdrop wall & banner behind north stand
+        const backdrop = new THREE.Mesh(
+          new THREE.BoxGeometry(38, 6.5, 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 })
+        );
+        backdrop.position.set(0, 4.8, -POOL.HALF_Z - 14.0);
+        this.group.add(backdrop);
+
+        // End stands (West & East)
+        for (const side of [-1, 1]) {
+          for (let t = 0; t < 4; t++) {
+            const y = 0.55 + t * 0.72;
+            const x = side * (POOL.HALF_X + 6.4 + t * 1.15);
+            const riser = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.72, 26), concreteMat);
+            riser.position.set(x, y, 0);
+            riser.receiveShadow = true;
+            this.group.add(riser);
+
+            const bench = new THREE.Mesh(
+              new THREE.BoxGeometry(0.55, 0.14, 25),
+              t % 2 === 0 ? seatMatCyan : seatMatBlue
+            );
+            bench.position.set(x - side * 0.15, y + 0.44, 0);
+            this.group.add(bench);
+          }
+        }
+
+        // Front safety glass/railing along North deck
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(34, 0.08, 0.08), railMat);
+        rail.position.set(0, 1.05, -POOL.HALF_Z - 6.1);
+        this.group.add(rail);
+
+        // 4 Stadium Floodlight Towers
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.35 });
+        const lampFaceMat = new THREE.MeshBasicMaterial({ color: 0xfef9c3 });
+        const towerCoords = [
+          [-16.5, -14.5],
+          [ 16.5, -14.5],
+          [-16.5,  14.5],
+          [ 16.5,  14.5],
+        ];
+        for (const [tx, tz] of towerCoords) {
+          const tower = new THREE.Group();
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 13, 10), poleMat);
+          pole.position.y = 6.5;
+          tower.add(pole);
+
+          const head = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.2, 0.4), poleMat);
+          head.position.y = 13.0;
+          head.lookAt(0, 0, 0);
+          const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.95), lampFaceMat);
+          glow.position.z = 0.22;
+          head.add(glow);
+          tower.add(head);
+
+          tower.position.set(tx, 0.2, tz);
+          this.group.add(tower);
+        }
+      }
+
+      _buildWaterAndCaustics() {
+        // Pool floor caustics layer
+        this.causticsTex = createCausticsTexture();
+        this.causticsMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(POOL.LENGTH - 0.1, POOL.WIDTH - 0.1),
+          new THREE.MeshBasicMaterial({
+            map: this.causticsTex,
+            transparent: true,
+            opacity: 0.42,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          })
+        );
+        this.causticsMesh.rotation.x = -Math.PI / 2;
+        this.causticsMesh.position.y = -POOL.DEPTH + 0.025;
+        this.group.add(this.causticsMesh);
+
+        // Subdivided water surface at y = 0
+        const waterGeo = new THREE.PlaneGeometry(POOL.LENGTH, POOL.WIDTH, 76, 60);
+        waterGeo.rotateX(-Math.PI / 2);
+        this.waterBasePos = Float32Array.from(waterGeo.attributes.position.array);
+
+        const waterMat = new THREE.MeshPhysicalMaterial({
+          color: 0x088ba8,
+          emissive: 0x03384a,
+          emissiveIntensity: 0.28,
+          roughness: 0.12,
+          metalness: 0.08,
+          clearcoat: 0.85,
+          clearcoatRoughness: 0.1,
+          transparent: true,
+          opacity: 0.72,
+          side: THREE.DoubleSide,
+        });
+
+        this.waterMesh = new THREE.Mesh(waterGeo, waterMat);
+        this.waterMesh.position.y = 0;
+        this.waterMesh.receiveShadow = true;
+        this.group.add(this.waterMesh);
+      }
+
+      _initSplashEffects() {
+        // Pooled expanding wake rings
+        const ringGeo = new THREE.RingGeometry(0.18, 0.30, 24);
+        ringGeo.rotateX(-Math.PI / 2);
+        for (let i = 0; i < 48; i++) {
+          const mat = new THREE.MeshBasicMaterial({
+            color: 0xe0f7ff,
+            transparent: true,
+            opacity: 0,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          });
+          const mesh = new THREE.Mesh(ringGeo, mat);
+          mesh.visible = false;
+          this.scene.add(mesh);
+          this.splashRings.push({ mesh, age: 0, maxAge: 0.7, active: false, scaleRate: 2.5 });
+        }
+
+        // Pooled 3D water spray droplets
+        const dropGeo = new THREE.SphereGeometry(0.045, 6, 6);
+        const dropMat = new THREE.MeshBasicMaterial({
+          color: 0xe0f2fe,
+          transparent: true,
+          opacity: 0.85,
+        });
+        for (let i = 0; i < 80; i++) {
+          const mesh = new THREE.Mesh(dropGeo, dropMat);
+          mesh.visible = false;
+          this.scene.add(mesh);
+          this.droplets.push({
+            mesh,
+            vel: new THREE.Vector3(),
+            age: 0,
+            maxAge: 0.55,
+            active: false,
+          });
+        }
+      }
+
+      spawnWake(x, z, scale = 1.0, dropletsCount = 0) {
+        // Water vertex ripple
+        if (this.ripples.length < 24) {
+          this.ripples.push({ x, z, amp: 0.045 * scale, age: 0, maxAge: 1.1 });
+        }
+
+        // Ring mesh
+        const ring = this.splashRings.find((r) => !r.active);
+        if (ring) {
+          ring.active = true;
+          ring.age = 0;
+          ring.maxAge = 0.55 + 0.25 * scale;
+          ring.scaleRate = 2.1 * scale;
+          ring.mesh.visible = true;
+          ring.mesh.position.set(x, 0.025, z);
+          ring.mesh.scale.setScalar(0.55 * scale);
+          ring.mesh.material.opacity = 0.65;
+        }
+
+        // Spray droplets
+        let spawned = 0;
+        for (const d of this.droplets) {
+          if (spawned >= dropletsCount) break;
+          if (!d.active) {
+            d.active = true;
+            d.age = 0;
+            d.maxAge = 0.35 + Math.random() * 0.25;
+            d.mesh.visible = true;
+            d.mesh.position.set(
+              x + (Math.random() - 0.5) * 0.3,
+              0.08,
+              z + (Math.random() - 0.5) * 0.3
+            );
+            const angle = Math.random() * Math.PI * 2;
+            const speed = (1.1 + Math.random() * 2.2) * scale;
+            d.vel.set(Math.cos(angle) * speed, (2.2 + Math.random() * 2.4) * scale, Math.sin(angle) * speed);
+            d.mesh.scale.setScalar(0.6 + Math.random() * 0.7);
+            spawned++;
+          }
+        }
+      }
+
+      update(dt, time) {
+        // Animate caustics UV scroll
+        if (this.causticsTex) {
+          this.causticsTex.offset.x = Math.sin(time * 0.18) * 0.12 + time * 0.02;
+          this.causticsTex.offset.y = Math.cos(time * 0.14) * 0.1 + time * 0.015;
+        }
+
+        // Update active vertex ripples
+        for (let i = this.ripples.length - 1; i >= 0; i--) {
+          this.ripples[i].age += dt;
+          if (this.ripples[i].age >= this.ripples[i].maxAge) {
+            this.ripples.splice(i, 1);
+          }
+        }
+
+        // Displace water vertices
+        const pos = this.waterMesh.geometry.attributes.position;
+        const base = this.waterBasePos;
+        const count = pos.count;
+        for (let i = 0; i < count; i++) {
+          const bx = base[i * 3];
+          const bz = base[i * 3 + 2];
+
+          let y =
+            Math.sin(bx * 0.95 + time * 2.2) * 0.03 +
+            Math.cos(bz * 1.15 - time * 1.85) * 0.025 +
+            Math.sin((bx + bz) * 1.6 + time * 3.1) * 0.014;
+
+          for (let r = 0; r < this.ripples.length; r++) {
+            const rp = this.ripples[r];
+            const dx = bx - rp.x;
+            const dz = bz - rp.z;
+            const d2 = dx * dx + dz * dz;
+            if (d2 < 7.5) {
+              const dist = Math.sqrt(d2);
+              const waveFront = rp.age * 3.8;
+              const band = Math.exp(-Math.pow(dist - waveFront, 2) * 2.4);
+              const fade = 1 - rp.age / rp.maxAge;
+              y += Math.sin((dist - waveFront) * 6.5) * rp.amp * band * fade;
+            }
+          }
+          pos.setY(i, y);
+        }
+        pos.needsUpdate = true;
+        this.waterMesh.geometry.computeVertexNormals();
+
+        // Update splash rings
+        for (const r of this.splashRings) {
+          if (!r.active) continue;
+          r.age += dt;
+          if (r.age >= r.maxAge) {
+            r.active = false;
+            r.mesh.visible = false;
+            continue;
+          }
+          const t = r.age / r.maxAge;
+          r.mesh.scale.addScalar(r.scaleRate * dt);
+          r.mesh.material.opacity = (1 - t) * 0.58;
+        }
+
+        // Update droplets
+        for (const d of this.droplets) {
+          if (!d.active) continue;
+          d.age += dt;
+          if (d.age >= d.maxAge || d.mesh.position.y < -0.05) {
+            d.active = false;
+            d.mesh.visible = false;
+            continue;
+          }
+          d.vel.y -= 9.8 * dt;
+          d.mesh.position.addScaledVector(d.vel, dt);
+          const s = (1 - d.age / d.maxAge) * 0.9;
+          d.mesh.scale.setScalar(Math.max(0.1, s));
+        }
+      }
+    }
+
+    // =========================================================================
+    // ARTICULATED 3D SWIMMER RIG & PROCEDURAL ANIMATION STATE MACHINE
+    // =========================================================================
+    class SwimmerRig {
+      constructor(scene, team, index, number, isGK = false) {
+        this.scene = scene;
+        this.team = team;
+        this.index = index;
+        this.number = number;
+        this.isGK = isGK;
+        this.roleName = ROLE_NAMES[index] || `PLAYER ${number}`;
+
+        // Gameplay physics state
+        this.position = new THREE.Vector3();
+        this.velocity = new THREE.Vector3();
+        this.facing = team === TEAM.BLUE ? 0 : Math.PI; // 0 = +X, PI = -X
+        this.stamina = 100;
+        this.isSprinting = false;
+        this.hasBall = false;
+
+        // Action timers & rules state
+        this.chargeRatio = 0;
+        this.isCharging = false;
+        this.throwSnapTimer = 0;   // > 0 during release follow-through
+        this.fakeTimer = 0;        // > 0 during pump-fake / baulk
+        this.lungeTimer = 0;       // > 0 during steal or GK lunge
+        this.lungeCooldown = 0;
+        this.lungeDir = new THREE.Vector3(1, 0, 0);
+        this.throwImmunity = 0;    // Prevents instant self-regrab after pass/shot
+        this.foulImmunity = 0;     // Free-throw protection window after ordinary foul
+        this.excludedTimer = 0;    // 20s man-down exclusion timer
+        this.isCountering = false;
+        this.wakeTimer = 0;
+        this.animPhase = Math.random() * Math.PI * 2;
+        this.swimBlend = 0;        // 0 = upright treading, 1 = horizontal freestyle
+
+        // Root Group
+        this.root = new THREE.Group();
+        this.scene.add(this.root);
+
+        this._buildArticulatedMesh();
+      }
+
+      _buildArticulatedMesh() {
+        const skinPalette = [0xe8be9e, 0xd8a27c, 0xc68b59, 0x8d5524, 0xf1c7a8];
+        const skinColor = skinPalette[(this.index + (this.team === TEAM.WHITE ? 2 : 0)) % skinPalette.length];
+
+        const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.55 });
+        const suitColor = this.team === TEAM.BLUE ? 0x1e40af : 0x334155;
+        const suitMat = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.65 });
+        const capHex = this.team === TEAM.BLUE ? '#1e6de8' : '#f4f1ea';
+        const capTex = createCapTexture(capHex, this.number, this.isGK);
+        const capMat = new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.45 });
+        const earGuardMat = new THREE.MeshStandardMaterial({
+          color: this.isGK ? 0xe11d48 : (this.team === TEAM.BLUE ? 0x1d4ed8 : 0xe2e8f0),
+          roughness: 0.45,
+        });
+        const goggleMat = new THREE.MeshStandardMaterial({
+          color: 0x0ea5e9,
+          emissive: 0x0369a1,
+          emissiveIntensity: 0.25,
+          roughness: 0.15,
+          metalness: 0.4,
+        });
+
+        // Joint hierarchy:
+        // root -> pelvis -> torso -> headGroup / shoulders -> elbows -> hands
+        //               \-> hips -> knees -> feet
+        this.pelvis = new THREE.Group();
+        this.root.add(this.pelvis);
+
+        // Swim trunks / pelvis mesh
+        const pelvisMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.14, 6, 12), suitMat);
+        pelvisMesh.castShadow = true;
+        this.pelvis.add(pelvisMesh);
+
+        // Torso pivot
+        this.torso = new THREE.Group();
+        this.torso.position.y = 0.14;
+        this.pelvis.add(this.torso);
+
+        const chestMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.185, 0.28, 8, 14), skinMat);
+        chestMesh.position.y = 0.22;
+        chestMesh.scale.set(0.88, 1.0, 1.18); // Broad swimmer shoulders along local Z
+        chestMesh.castShadow = true;
+        this.torso.add(chestMesh);
+
+        // Head & Neck
+        this.headGroup = new THREE.Group();
+        this.headGroup.position.set(0, 0.48, 0);
+        this.torso.add(this.headGroup);
+
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 0.1, 10), skinMat);
+        neck.position.y = 0.03;
+        this.headGroup.add(neck);
+
+        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.135, 16, 14), skinMat);
+        headMesh.position.y = 0.16;
+        headMesh.castShadow = true;
+        this.headGroup.add(headMesh);
+
+        // Water polo cap (slightly larger hemisphere + ear guards)
+        const capMesh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.142, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62),
+          capMat
+        );
+        capMesh.position.y = 0.17;
+        capMesh.rotation.y = Math.PI / 2; // Align numbers to left/right sides (+Z / -Z)
+        capMesh.castShadow = true;
+        this.headGroup.add(capMesh);
+
+        for (const s of [-1, 1]) {
+          const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.025, 10), earGuardMat);
+          ear.rotation.x = Math.PI / 2;
+          ear.position.set(-0.01, 0.15, s * 0.135);
+          this.headGroup.add(ear);
+        }
+
+        // Goggles facing +X (local forward)
+        const goggleBridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.14), goggleMat);
+        goggleBridge.position.set(0.13, 0.175, 0);
+        this.headGroup.add(goggleBridge);
+        for (const sz of [-0.045, 0.045]) {
+          const lens = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.042, 0.055), goggleMat);
+          lens.position.set(0.132, 0.175, sz);
+          this.headGroup.add(lens);
+        }
+
+        // Helper for arms (local +X is forward, local +/-Z is right/left)
+        const buildArm = (sideSign) => {
+          const shoulder = new THREE.Group();
+          shoulder.position.set(0, 0.39, sideSign * 0.24);
+          this.torso.add(shoulder);
+
+          const upperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.22, 6, 10), skinMat);
+          upperArm.position.y = -0.14;
+          upperArm.castShadow = true;
+          shoulder.add(upperArm);
+
+          const elbow = new THREE.Group();
+          elbow.position.set(0, -0.28, 0);
+          shoulder.add(elbow);
+
+          const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.044, 0.20, 6, 10), skinMat);
+          forearm.position.y = -0.13;
+          forearm.castShadow = true;
+          elbow.add(forearm);
+
+          const hand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.11, 0.035), skinMat);
+          hand.position.y = -0.27;
+          hand.castShadow = true;
+          elbow.add(hand);
+
+          return { shoulder, elbow, hand };
+        };
+
+        this.leftArm = buildArm(-1);
+        this.rightArm = buildArm(1);
+
+        // Ball attachment socket at right hand
+        this.ballSocket = new THREE.Object3D();
+        this.ballSocket.position.set(0.08, -0.32, 0);
+        this.rightArm.elbow.add(this.ballSocket);
+
+        // Helper for legs
+        const buildLeg = (sideSign) => {
+          const hip = new THREE.Group();
+          hip.position.set(0, -0.08, sideSign * 0.105);
+          this.pelvis.add(hip);
+
+          const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.28, 6, 10), skinMat);
+          thigh.position.y = -0.18;
+          hip.add(thigh);
+
+          const knee = new THREE.Group();
+          knee.position.set(0, -0.36, 0);
+          hip.add(knee);
+
+          const calf = new THREE.Mesh(new THREE.CapsuleGeometry(0.054, 0.28, 6, 10), skinMat);
+          calf.position.y = -0.18;
+          knee.add(calf);
+
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.055, 0.085), skinMat);
+          foot.position.set(0.05, -0.37, 0);
+          knee.add(foot);
+
+          return { hip, knee, foot };
+        };
+
+        this.leftLeg = buildLeg(-1);
+        this.rightLeg = buildLeg(1);
+      }
+
+      getHandWorldPosition(out = new THREE.Vector3()) {
+        this.root.updateMatrixWorld(true);
+        return this.ballSocket.getWorldPosition(out);
+      }
+
+      updateAnimation(dt, arena) {
+        if (this.throwImmunity > 0) this.throwImmunity = Math.max(0, this.throwImmunity - dt);
+        if (this.foulImmunity > 0) this.foulImmunity = Math.max(0, this.foulImmunity - dt);
+        if (this.excludedTimer > 0) this.excludedTimer = Math.max(0, this.excludedTimer - dt);
+        if (this.lungeCooldown > 0) this.lungeCooldown = Math.max(0, this.lungeCooldown - dt);
+        if (this.throwSnapTimer > 0) this.throwSnapTimer = Math.max(0, this.throwSnapTimer - dt);
+        if (this.fakeTimer > 0) this.fakeTimer = Math.max(0, this.fakeTimer - dt);
+        if (this.lungeTimer > 0) this.lungeTimer = Math.max(0, this.lungeTimer - dt);
+
+        const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+        const speedNorm = THREE.MathUtils.clamp(horizSpeed / 3.85, 0, 1);
+
+        // Smooth blend between upright treading (0) and horizontal freestyle (1)
+        const targetBlend = (this.isGK || this.isCharging || this.throwSnapTimer > 0 || this.fakeTimer > 0)
+          ? speedNorm * 0.25
+          : speedNorm;
+        this.swimBlend = THREE.MathUtils.lerp(this.swimBlend, targetBlend, Math.min(1, dt * 8));
+
+        const cycleRate = 2.8 + speedNorm * 5.6;
+        this.animPhase += dt * cycleRate;
+
+        // Root placement & facing
+        this.root.position.set(this.position.x, 0, this.position.z);
+        this.root.rotation.y = -this.facing;
+
+        // Vertical immersion: shoulders at water level when treading; flat near y=-0.05 when sprinting
+        const treadBob = Math.sin(this.animPhase * 0.85) * 0.045;
+        const gkLift = this.isGK ? 0.14 : 0;
+        const lungeLift = this.lungeTimer > 0 ? Math.sin((this.lungeTimer / 0.34) * Math.PI) * 0.24 : 0;
+        const uprightY = -0.58 + treadBob + gkLift + lungeLift;
+        const swimY = -0.14 + Math.sin(this.animPhase * 2) * 0.025;
+        this.pelvis.position.y = THREE.MathUtils.lerp(uprightY, swimY, this.swimBlend);
+
+        // Body pitch: 0 = upright, -1.36 rad (~-78 deg) = horizontal freestyle face-down
+        const swimPitch = -1.36 * this.swimBlend;
+        this.pelvis.rotation.set(0, 0, swimPitch);
+
+        // Reset torso twist
+        let torsoYaw = 0;
+        let torsoPitch = 0;
+
+        // ---------------------------------------------------------------------
+        // PROCEDURAL LIMB STATES
+        // ---------------------------------------------------------------------
+        if (this.isGK) {
+          // GOALKEEPER: High eggbeater tread, hands poised high above water, lunge reach
+          const p = this.animPhase;
+          this.leftLeg.hip.rotation.set(0.35 * Math.sin(p), 0, 0.32 * Math.cos(p));
+          this.leftLeg.knee.rotation.set(0, 0, -0.75 + 0.35 * Math.sin(p + 1.1));
+          this.rightLeg.hip.rotation.set(-0.35 * Math.sin(p), 0, -0.32 * Math.cos(p));
+          this.rightLeg.knee.rotation.set(0, 0, -0.75 - 0.35 * Math.sin(p + 1.1));
+
+          const lungeBoost = this.lungeTimer > 0 ? 1.0 : 0.0;
+          this.leftArm.shoulder.rotation.set(-0.55 - lungeBoost * 0.4, 0, 2.35 + Math.sin(p * 0.6) * 0.12);
+          this.leftArm.elbow.rotation.set(0, 0, 0.45 - lungeBoost * 0.35);
+
+          if (!this.hasBall) {
+            this.rightArm.shoulder.rotation.set(0.55 + lungeBoost * 0.4, 0, 2.35 - Math.sin(p * 0.6) * 0.12);
+            this.rightArm.elbow.rotation.set(0, 0, 0.45 - lungeBoost * 0.35);
+          }
+          this.headGroup.rotation.set(0, 0, 0);
+        } else if (this.swimBlend > 0.32 && !this.isCharging && this.throwSnapTimer <= 0) {
+          // FREESTYLE SPRINT / SWIM
+          const p = this.animPhase;
+          const s = this.swimBlend;
+
+          // Flutter kicks
+          this.leftLeg.hip.rotation.set(0, 0, Math.sin(p * 2.1) * 0.42);
+          this.leftLeg.knee.rotation.set(0, 0, -0.25 + Math.cos(p * 2.1) * 0.25);
+          this.rightLeg.hip.rotation.set(0, 0, -Math.sin(p * 2.1) * 0.42);
+          this.rightLeg.knee.rotation.set(0, 0, -0.25 - Math.cos(p * 2.1) * 0.25);
+
+          // Left arm full overhead freestyle stroke (pull down through water, recover above)
+          const lAngle = -p;
+          this.leftArm.shoulder.rotation.set(-0.22, 0, lAngle);
+          this.leftArm.elbow.rotation.set(0, 0, Math.sin(p) > 0 ? 0.65 : 0.2);
+
+          // Right arm: stroke if no ball, else keep ball tucked/dribbled high in front
+          if (!this.hasBall) {
+            const rAngle = -p + Math.PI;
+            this.rightArm.shoulder.rotation.set(0.22, 0, rAngle);
+            this.rightArm.elbow.rotation.set(0, 0, Math.sin(p + Math.PI) > 0 ? 0.65 : 0.2);
+          } else {
+            // Dribble carry slightly forward with off-hand swimming
+            this.rightArm.shoulder.rotation.set(0.35, 0, 1.9 + Math.sin(p) * 0.15);
+            this.rightArm.elbow.rotation.set(0, 0, 0.55);
+          }
+
+          // Body roll + side breathing head turn
+          torsoYaw = Math.sin(p) * 0.24 * s;
+          this.pelvis.rotation.x = Math.sin(p) * 0.22 * s;
+          const breath = Math.max(0, Math.sin(p * 0.5));
+          this.headGroup.rotation.set(0, breath * 0.85 * s, 0.45 * s);
+        } else {
+          // TREADING WATER (IDLE) & SCULLING
+          const p = this.animPhase * 0.9;
+          // Circular eggbeater leg kick
+          this.leftLeg.hip.rotation.set(0.38 * Math.sin(p), 0, 0.35 * Math.cos(p));
+          this.leftLeg.knee.rotation.set(0, 0, -0.85 + 0.32 * Math.sin(p + 1.2));
+          this.rightLeg.hip.rotation.set(-0.38 * Math.sin(p), 0, -0.35 * Math.cos(p));
+          this.rightLeg.knee.rotation.set(0, 0, -0.85 - 0.32 * Math.sin(p + 1.2));
+
+          // Sculling left hand
+          this.leftArm.shoulder.rotation.set(-0.55 + Math.sin(p) * 0.25, 0.3 * Math.cos(p), 0.55);
+          this.leftArm.elbow.rotation.set(0, 0, 0.75 + Math.sin(p) * 0.15);
+
+          if (!this.hasBall && this.throwSnapTimer <= 0) {
+            this.rightArm.shoulder.rotation.set(0.55 - Math.sin(p) * 0.25, -0.3 * Math.cos(p), 0.55);
+            this.rightArm.elbow.rotation.set(0, 0, 0.75 - Math.sin(p) * 0.15);
+          }
+
+          this.headGroup.rotation.set(0, 0, -0.25 * this.swimBlend);
+        }
+
+        // BALL CARRY / PUMP FAKE / WIND-UP / RELEASE SNAP OVERLAY
+        if (this.hasBall && this.fakeTimer > 0) {
+          // Crisp baulk / pump-fake: cock arm back then snap partway without releasing
+          const f = Math.sin((this.fakeTimer / 0.28) * Math.PI);
+          torsoYaw = THREE.MathUtils.lerp(-0.45, 0.35, f);
+          torsoPitch = -0.15 * f;
+          this.rightArm.shoulder.rotation.set(0.32, -0.35 + f * 0.5, 2.35 - f * 0.65);
+          this.rightArm.elbow.rotation.set(0, 0, 0.85 - f * 0.35);
+        } else if (this.hasBall && (this.swimBlend <= 0.32 || this.isCharging)) {
+          // Raise right throwing arm above water; pull back smoothly with chargeRatio
+          const pull = this.isCharging ? this.chargeRatio : 0;
+          torsoYaw = -0.65 * pull;
+          torsoPitch = -0.12 * pull;
+          this.rightArm.shoulder.rotation.set(
+            0.35 + pull * 0.25,
+            -0.55 * pull,
+            2.45 - pull * 0.75
+          );
+          this.rightArm.elbow.rotation.set(0, 0, 0.85 + pull * 0.45);
+        } else if (this.throwSnapTimer > 0) {
+          // Crisp forward snap & follow-through after release
+          const t = 1 - this.throwSnapTimer / 0.26;
+          torsoYaw = THREE.MathUtils.lerp(-0.55, 0.55, t);
+          this.rightArm.shoulder.rotation.set(0.25, 0.45 * t, THREE.MathUtils.lerp(2.1, 0.65, t));
+          this.rightArm.elbow.rotation.set(0, 0, THREE.MathUtils.lerp(0.9, 0.15, t));
+        } else if (this.lungeTimer > 0 && !this.isGK) {
+          // Steal tackle lunge forward reach
+          const p = Math.sin((this.lungeTimer / 0.34) * Math.PI);
+          torsoPitch = -0.55 * p;
+          this.rightArm.shoulder.rotation.set(0.15, 0, 1.55 * p + 0.5);
+          this.rightArm.elbow.rotation.set(0, 0, 0.15);
+        }
+
+        this.torso.rotation.y = torsoYaw;
+        this.torso.rotation.z = torsoPitch;
+
+        // Periodic water wakes & spray while moving
+        this.wakeTimer -= dt;
+        if (this.wakeTimer <= 0) {
+          if (horizSpeed > 1.3) {
+            arena.spawnWake(this.position.x, this.position.z, 0.65 + speedNorm * 0.55, speedNorm > 0.6 ? 3 : 1);
+            this.wakeTimer = 0.24 - speedNorm * 0.1;
+          } else {
+            arena.spawnWake(this.position.x, this.position.z, 0.42, 0);
+            this.wakeTimer = 0.65;
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // BALL 3D (Ballistics, Spin, Water Skip/Bounce, Goal & Post Detection)
+    // =========================================================================
+    class Ball3D {
+      constructor(scene) {
+        this.scene = scene;
+        this.radius = 0.115;
+        this.position = new THREE.Vector3(0, 0.06, 0);
+        this.velocity = new THREE.Vector3();
+        this.spin = new THREE.Vector3();
+        this.holder = null;
+        this.lastTeamTouch = null;
+        this.lastDeflectTeam = null;
+        this.state = 'floating'; // 'held' | 'flight' | 'floating'
+        this.isShot = false;
+        this.passTarget = null;
+        this.bobPhase = 0;
+
+        const mat = new THREE.MeshStandardMaterial({
+          map: createWaterPoloBallTexture(),
+          roughness: 0.35,
+          metalness: 0.05,
+        });
+        this.mesh = new THREE.Mesh(new THREE.SphereGeometry(this.radius, 20, 16), mat);
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+        this.scene.add(this.mesh);
+      }
+
+      attachTo(swimmer) {
+        if (this.holder && this.holder !== swimmer) {
+          this.holder.hasBall = false;
+        }
+        this.holder = swimmer;
+        swimmer.hasBall = true;
+        this.lastTeamTouch = swimmer.team;
+        this.lastDeflectTeam = null;
+        this.state = 'held';
+        this.isShot = false;
+        this.passTarget = null;
+        this.velocity.set(0, 0, 0);
+      }
+
+      release(origin, velocity, isShot = false, passTarget = null) {
+        if (this.holder) {
+          this.holder.hasBall = false;
+          this.holder.throwImmunity = 0.38;
+          this.lastTeamTouch = this.holder.team;
+          this.lastDeflectTeam = null;
+          this.holder = null;
+        }
+        this.position.copy(origin);
+        this.velocity.copy(velocity);
+        this.state = 'flight';
+        this.isShot = isShot;
+        this.passTarget = passTarget;
+        // Backspin / rifle spin on throw
+        this.spin.set(velocity.z * 0.9, 6.0, -velocity.x * 0.9);
+      }
+
+      update(dt, arena, sfx) {
+        this.bobPhase += dt * 3.8;
+
+        if (this.state === 'held' && this.holder) {
+          this.holder.getHandWorldPosition(this.position);
+          // Subtle dribble offset if swimming horizontally
+          if (this.holder.swimBlend > 0.4 && !this.holder.isCharging) {
+            this.position.y = Math.max(0.11, this.position.y);
+          }
+          this.mesh.position.copy(this.position);
+          this.mesh.rotation.y += dt * 1.2;
+          return { goal: null, out: null };
+        }
+
+        if (this.state === 'flight') {
+          // Ballistic gravity & slight air drag (13.2 m/s^2 for readable water polo arcs)
+          this.velocity.y -= 13.2 * dt;
+          this.velocity.x *= (1 - 0.14 * dt);
+          this.velocity.z *= (1 - 0.14 * dt);
+
+          const prevX = this.position.x;
+          this.position.addScaledVector(this.velocity, dt);
+
+          // Spin mesh
+          this.mesh.rotation.x += this.spin.x * dt;
+          this.mesh.rotation.y += this.spin.y * dt;
+          this.mesh.rotation.z += this.spin.z * dt;
+
+          // Goal mouth & post checks before wall clamp
+          const goalEvent = this._checkGoalAndPosts(prevX, arena, sfx);
+          if (goalEvent) {
+            this.mesh.position.copy(this.position);
+            return { goal: goalEvent, out: null };
+          }
+
+          // Check real water polo endline out-of-bounds on shots (Goal Throw vs 2m Corner Throw)
+          if (this.isShot && Math.abs(this.position.x) > POOL.HALF_X + 0.12) {
+            const side = this.position.x > 0 ? 1 : -1;
+            const defendingTeam = side === 1 ? TEAM.WHITE : TEAM.BLUE;
+            const attackingTeam = side === 1 ? TEAM.BLUE : TEAM.WHITE;
+            const isCorner = this.lastDeflectTeam === defendingTeam;
+            arena.spawnWake(
+              THREE.MathUtils.clamp(this.position.x, -POOL.HALF_X, POOL.HALF_X),
+              THREE.MathUtils.clamp(this.position.z, -POOL.HALF_Z, POOL.HALF_Z),
+              1.1,
+              5
+            );
+            return {
+              goal: null,
+              out: {
+                type: isCorner ? 'corner_throw' : 'goal_throw',
+                team: isCorner ? attackingTeam : defendingTeam,
+                side,
+                z: this.position.z,
+              }
+            };
+          }
+
+          // Water surface impact / Skip Shot bounce
+          if (this.position.y <= this.radius * 0.72) {
+            const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+            if (this.velocity.y < -1.8 && horizSpeed > 6.5) {
+              // Water skip bounce!
+              this.position.y = this.radius * 0.75;
+              this.velocity.y = -this.velocity.y * 0.54;
+              this.velocity.x *= 0.84;
+              this.velocity.z *= 0.84;
+              arena.spawnWake(this.position.x, this.position.z, 1.5, 10);
+              sfx.playSplash(0.75);
+            } else {
+              // Settle onto water
+              this.position.y = 0.06;
+              this.velocity.y = 0;
+              this.velocity.x *= 0.48;
+              this.velocity.z *= 0.48;
+              this.state = 'floating';
+              this.isShot = false;
+              arena.spawnWake(this.position.x, this.position.z, 1.25, 7);
+              sfx.playSplash(0.55);
+            }
+          }
+        } else {
+          // Floating on water with viscous drag & gentle bobbing
+          this.position.x += this.velocity.x * dt;
+          this.position.z += this.velocity.z * dt;
+          const drag = Math.exp(-3.4 * dt);
+          this.velocity.x *= drag;
+          this.velocity.z *= drag;
+          this.position.y = 0.055 + Math.sin(this.bobPhase) * 0.025;
+
+          const goalEvent = this._checkGoalAndPosts(this.position.x, arena, sfx);
+          if (goalEvent) {
+            this.mesh.position.copy(this.position);
+            return { goal: goalEvent, out: null };
+          }
+        }
+
+        // Pool side/end wall rebounds (outside goal mouths)
+        const inGoalWidth = Math.abs(this.position.z) < POOL.GOAL_HALF_W - 0.08 && this.position.y < POOL.GOAL_H;
+        if (!inGoalWidth) {
+          if (this.position.x < -POOL.HALF_X + this.radius) {
+            this.position.x = -POOL.HALF_X + this.radius;
+            this.velocity.x = Math.abs(this.velocity.x) * 0.55;
+          } else if (this.position.x > POOL.HALF_X - this.radius) {
+            this.position.x = POOL.HALF_X - this.radius;
+            this.velocity.x = -Math.abs(this.velocity.x) * 0.55;
+          }
+        }
+        if (this.position.z < -POOL.HALF_Z + this.radius) {
+          this.position.z = -POOL.HALF_Z + this.radius;
+          this.velocity.z = Math.abs(this.velocity.z) * 0.55;
+        } else if (this.position.z > POOL.HALF_Z - this.radius) {
+          this.position.z = POOL.HALF_Z - this.radius;
+          this.velocity.z = -Math.abs(this.velocity.z) * 0.55;
+        }
+
+        this.mesh.position.copy(this.position);
+        return { goal: null, out: null };
+      }
+
+      _checkGoalAndPosts(prevX, arena, sfx) {
+        const hw = POOL.GOAL_HALF_W;
+        const gh = POOL.GOAL_H;
+        const r = this.radius;
+
+        for (const side of [-1, 1]) {
+          const gx = side * POOL.HALF_X;
+          // Post / crossbar collision when near goal line
+          if (Math.abs(this.position.x - gx) < r + 0.06 && this.position.y <= gh + r + 0.06) {
+            // Left & right goalposts
+            for (const pz of [-hw, hw]) {
+              const dx = this.position.x - gx;
+              const dz = this.position.z - pz;
+              const dist = Math.hypot(dx, dz);
+              if (dist < r + 0.045 && this.position.y <= gh) {
+                const nx = dx / (dist || 1);
+                const nz = dz / (dist || 1);
+                const dot = this.velocity.x * nx + this.velocity.z * nz;
+                if (dot < 0) {
+                  this.velocity.x -= 1.65 * dot * nx;
+                  this.velocity.z -= 1.65 * dot * nz;
+                  this.position.x = gx + nx * (r + 0.05);
+                  this.position.z = pz + nz * (r + 0.05);
+                  sfx.playClang();
+                  return null;
+                }
+              }
+            }
+            // Crossbar
+            if (Math.abs(this.position.z) <= hw && Math.abs(this.position.y - gh) < r + 0.045) {
+              const dx = this.position.x - gx;
+              const dy = this.position.y - gh;
+              const dist = Math.hypot(dx, dy);
+              if (dist < r + 0.045) {
+                const nx = dx / (dist || 1);
+                const ny = dy / (dist || 1);
+                const dot = this.velocity.x * nx + this.velocity.y * ny;
+                if (dot < 0) {
+                  this.velocity.x -= 1.65 * dot * nx;
+                  this.velocity.y -= 1.65 * dot * ny;
+                  sfx.playClang();
+                  return null;
+                }
+              }
+            }
+          }
+
+          // Crossed goal line inside mouth
+          const crossed = side === 1
+            ? (prevX <= gx && this.position.x > gx + 0.08) || this.position.x > gx + 0.14
+            : (prevX >= gx && this.position.x < gx - 0.08) || this.position.x < gx - 0.14;
+
+          if (crossed && Math.abs(this.position.z) < hw - 0.08 && this.position.y <= gh - 0.04) {
+            // Trap inside net
+            this.velocity.multiplyScalar(0.18);
+            this.position.x = THREE.MathUtils.clamp(
+              this.position.x,
+              -POOL.HALF_X - POOL.GOAL_DEPTH + 0.18,
+              POOL.HALF_X + POOL.GOAL_DEPTH - 0.18
+            );
+            arena.spawnWake(this.position.x, this.position.z, 1.8, 12);
+            return side === 1 ? TEAM.BLUE : TEAM.WHITE; // Ball in right goal -> Blue scores!
+          }
+        }
+        return null;
+      }
+    }
+
+    // =========================================================================
+    // AI CONTROLLER (3-3 Set Offense, M-Zone/Press Defense, Counter-Attacks, GKs)
+    // =========================================================================
+    class AIController {
+      constructor() {
+        this.whiteWindupTimer = 0;
+        this.whitePendingShot = null;
+        this.whiteDecisionCooldown = 0;
+        this.gkHoldTimer = { blue: 0, white: 0 };
+      }
+
+      // Real Water Polo 3-3 Umbrella / Arc Set Offense
+      getAttackSlot(team, index, ballX, matchElapsed) {
+        const dir = team === TEAM.BLUE ? 1 : -1;
+        const ownGoal = team === TEAM.BLUE ? -POOL.HALF_X : POOL.HALF_X;
+        const ballProgress = THREE.MathUtils.clamp((ballX * dir + POOL.HALF_X) / POOL.LENGTH, 0.25, 1.0);
+        // Set shifts deeper toward 2m once the ball crosses mid-pool
+        const shift = THREE.MathUtils.lerp(-2.4, 0.0, ballProgress);
+
+        const slots = [
+          [0, 0],                              // 0 GK
+          [(6.2 + shift) * dir, -5.4],         // 1 Left Driver (4-5 side)
+          [(6.2 + shift) * dir,  5.4],         // 2 Right Driver (1-2 side)
+          [(4.6 + shift) * dir,  0.0],         // 3 Point (Top of 7-8m arc)
+          [(9.3 + shift * 0.55) * dir, -6.7],  // 4 Left Wing (post/wing)
+          [(9.3 + shift * 0.55) * dir,  6.7],  // 5 Right Wing (post/wing)
+          [(10.05 + shift * 0.45) * dir, 0.0], // 6 Center Forward (Hole Set outside 2m!)
+        ];
+        const [x, z] = slots[index] || [0, 0];
+        const pos = new THREE.Vector3(x, 0, z);
+
+        // Enforce 2m offside rule: off-ball attackers stay outside 2m unless ball is inside 2m
+        const oppGoalX = -ownGoal;
+        const limitX = oppGoalX - 2.15 * dir;
+        const ballInside2m = dir === 1 ? ballX > limitX : ballX < limitX;
+        if (!ballInside2m) {
+          pos.x = dir === 1 ? Math.min(pos.x, limitX) : Math.max(pos.x, limitX);
+        }
+
+        // Subtle wing/driver drive motion along the perimeter
+        if (index === 1 || index === 2) {
+          pos.z += Math.sin(matchElapsed * 0.65 + index * 1.7) * 0.9;
+        } else if (index === 4 || index === 5) {
+          pos.x += Math.cos(matchElapsed * 0.55 + index) * 0.45 * dir;
+        }
+        return pos;
+      }
+
+      // Real Water Polo Counter-Attack Lanes (breakaway wings/drivers sprint up-pool)
+      getCounterSlot(team, index, swimmer) {
+        const dir = team === TEAM.BLUE ? 1 : -1;
+        const laneZ = [0, -5.2, 5.2, 0.0, -7.2, 7.2, 0.0][index] || 0;
+        const targetX = dir === 1
+          ? Math.min(10.1, Math.max(swimmer.position.x + 5.5, 7.8))
+          : Math.max(-10.1, Math.min(swimmer.position.x - 5.5, -7.8));
+        return new THREE.Vector3(targetX, 0, laneZ);
+      }
+
+      // Real Water Polo Defense: Goal-side marking + Center Back fronting + M-Zone slough
+      getSmartDefenseTarget(defender, index, oppAttacker, ballPos, oppHolder, oppTeam, engine) {
+        const ownGoalX = defender.team === TEAM.BLUE ? -POOL.HALF_X : POOL.HALF_X;
+        const goalCenter = new THREE.Vector3(ownGoalX, 0, 0);
+        const dirToOppGoal = defender.team === TEAM.BLUE ? 1 : -1;
+
+        // #6 Center Back stays between opponent's 2m Center Forward (#6) and the goal
+        if (index === 6) {
+          const cf = oppTeam[6];
+          const toGoal = goalCenter.clone().sub(cf.position).normalize();
+          // Front or goal-side cushion depending on ball angle
+          return cf.position.clone().addScaledVector(toGoal, 0.95);
+        }
+
+        // Goal-side cushion: sit between assigned attacker and own goal
+        const toGoal = goalCenter.clone().sub(oppAttacker.position);
+        const distToGoal = toGoal.length();
+        toGoal.normalize();
+
+        // Tighter press if attacker is close to goal or holding ball; slough toward 2m if weak-side
+        const isWeakSide = Math.sign(oppAttacker.position.z) !== Math.sign(ballPos.z) && Math.abs(ballPos.z) > 2.2;
+        const cushion = oppAttacker === oppHolder ? 1.05 : THREE.MathUtils.clamp(distToGoal * 0.18, 1.1, 2.4);
+        const markPos = oppAttacker.position.clone().addScaledVector(toGoal, cushion);
+
+        if (isWeakSide && oppAttacker !== oppHolder) {
+          // M-Zone Drop: slough inward toward the 4m hole to deny entry passes to Center Forward
+          const holeZone = new THREE.Vector3(ownGoalX + 4.2 * dirToOppGoal, 0, 0);
+          markPos.lerp(holeZone, 0.36);
+        }
+
+        return markPos;
+      }
+
+      _isLaneClear(fromPos, toPos, opponents, buffer = 1.05) {
+        const seg = new THREE.Vector2(toPos.x - fromPos.x, toPos.z - fromPos.z);
+        const lenSq = seg.lengthSq();
+        if (lenSq < 0.01) return true;
+        for (const opp of opponents) {
+          if (opp.isGK || opp.excludedTimer > 0) continue;
+          const t = THREE.MathUtils.clamp(
+            ((opp.position.x - fromPos.x) * seg.x + (opp.position.z - fromPos.z) * seg.y) / lenSq,
+            0.05,
+            0.95
+          );
+          const projX = fromPos.x + seg.x * t;
+          const projZ = fromPos.z + seg.y * t;
+          const d = Math.hypot(opp.position.x - projX, opp.position.z - projZ);
+          if (d < buffer) return false;
+        }
+        return true;
+      }
+
+      update(dt, engine) {
+        const diff = engine.diff;
+        if (this.whiteDecisionCooldown > 0) this.whiteDecisionCooldown -= dt;
+
+        const ball = engine.ball;
+        const holder = ball.holder;
+        const blueHasBall = holder && holder.team === TEAM.BLUE;
+        const whiteHasBall = holder && holder.team === TEAM.WHITE;
+
+        // Update both Goalkeepers first
+        this._updateGoalkeeper(engine.blueTeam[0], dt, engine);
+        this._updateGoalkeeper(engine.whiteTeam[0], dt, engine);
+
+        // Swim-off opening sprint at quarter start
+        if (engine.swimOffActive && !holder) {
+          this._updateSwimOff(dt, engine);
+          return;
+        }
+
+        // Nearest active (non-excluded) defenders (never press an opposing GK holding the ball)
+        const whiteCanPress = !(blueHasBall && holder.isGK);
+        const whiteChaser = (!whiteHasBall && whiteCanPress) ? this._findNearestField(engine.whiteTeam, ball.position) : null;
+        const blueChaser = !holder ? this._findNearestField(engine.blueTeam, ball.position, engine.controlled) : null;
+
+        // Counter-attack state
+        const blueCountering = engine.counterTimer > 0 && engine.counterTeam === TEAM.BLUE;
+        const whiteCountering = engine.counterTimer > 0 && engine.counterTeam === TEAM.WHITE;
+
+        // Update Blue AI field players
+        for (let i = 1; i < engine.blueTeam.length; i++) {
+          const p = engine.blueTeam[i];
+          if (p === engine.controlled) {
+            p.isCountering = false;
+            continue;
+          }
+          if (p.excludedTimer > 0) {
+            this._steerToExclusionBox(p, dt);
+            continue;
+          }
+
+          if (p === holder) {
+            const goalTarget = new THREE.Vector3(POOL.HALF_X, 0.4, 0);
+            p.facing = Math.atan2(goalTarget.z - p.position.z, goalTarget.x - p.position.x);
+            this._steerToward(p, new THREE.Vector3(Math.min(8.2, p.position.x + 1.8), 0, p.position.z), dt, false, null, 1.0);
+            if (engine.shotClock < 12) {
+              engine.performPass(p, engine.controlled);
+            }
+            continue;
+          }
+
+          if (!holder && p === blueChaser && p.position.distanceTo(ball.position) < 4.5) {
+            p.isCountering = false;
+            this._steerToward(p, ball.position, dt, true, null, 1.0);
+          } else if (blueHasBall) {
+            // Preserve Counter-Attack Option: Wings & lead driver sprint up-pool into open water!
+            const isBreaker = (i === 4 || i === 5 || i === 1 || i === 2);
+            if ((blueCountering || holder.isGK) && isBreaker && p.position.x < 8.5) {
+              p.isCountering = true;
+              const cSlot = this.getCounterSlot(TEAM.BLUE, i, p);
+              this._steerToward(p, cSlot, dt, true, ball.position, 1.04);
+            } else {
+              p.isCountering = false;
+              const slot = this.getAttackSlot(TEAM.BLUE, i, ball.position.x, engine.matchElapsed);
+              this._steerToward(p, slot, dt, false, ball.position, 0.96);
+            }
+          } else {
+            p.isCountering = false;
+            // Smart defense + urgent sprint recovery if caught behind the ball; stay out of White GK's 5m zone if White GK has ball
+            const opp = engine.whiteTeam[i];
+            const markTarget = this.getSmartDefenseTarget(p, i, opp, ball.position, holder, engine.whiteTeam, engine);
+            if (whiteHasBall && holder.isGK) {
+              markTarget.x = Math.min(markTarget.x, POOL.HALF_X - 5.2);
+            }
+            const caughtUpPool = p.position.x > ball.position.x + 2.0;
+            this._steerToward(p, markTarget, dt, caughtUpPool || (opp === holder && !holder.isGK), ball.position, 0.98);
+          }
+        }
+
+        // Update White AI field players
+        for (let i = 1; i < engine.whiteTeam.length; i++) {
+          const p = engine.whiteTeam[i];
+          if (p.excludedTimer > 0) {
+            this._steerToExclusionBox(p, dt);
+            continue;
+          }
+
+          if (p === holder) {
+            p.isCountering = false;
+            this._updateWhiteBallCarrier(p, dt, engine);
+          } else if (!holder && p === whiteChaser) {
+            p.isCountering = false;
+            this._steerToward(p, ball.position, dt, true, null, diff.aiSpeedMult);
+          } else if (blueHasBall && !holder.isGK && p === whiteChaser && holder.foulImmunity <= 0) {
+            p.isCountering = false;
+            // Press Blue field ball carrier goal-side (never attack Blue GK!)
+            const goalDir = new THREE.Vector3(-POOL.HALF_X, 0, 0).sub(holder.position).normalize();
+            const pressPos = holder.position.clone().addScaledVector(goalDir, -0.78);
+            this._steerToward(p, pressPos, dt, p.position.distanceTo(holder.position) > 2.2, holder.position, diff.aiSpeedMult);
+            if (p.position.distanceTo(holder.position) < 1.12 && p.lungeCooldown <= 0 && Math.random() < diff.stealAttemptRate * dt) {
+              engine.performStealLunge(p);
+            }
+          } else if (whiteHasBall) {
+            const isBreaker = (i === 4 || i === 5 || i === 1 || i === 2);
+            if ((whiteCountering || holder.isGK) && isBreaker && p.position.x > -8.5 && Math.random() < diff.counterAwareness + 0.35) {
+              p.isCountering = true;
+              const cSlot = this.getCounterSlot(TEAM.WHITE, i, p);
+              this._steerToward(p, cSlot, dt, true, ball.position, diff.aiSpeedMult * 1.04);
+            } else {
+              p.isCountering = false;
+              const slot = this.getAttackSlot(TEAM.WHITE, i, ball.position.x, engine.matchElapsed);
+              this._steerToward(p, slot, dt, false, ball.position, diff.aiSpeedMult);
+            }
+          } else {
+            p.isCountering = false;
+            const opp = engine.blueTeam[i];
+            const markTarget = this.getSmartDefenseTarget(p, i, opp, ball.position, holder, engine.blueTeam, engine);
+            // Never attack Blue GK when GK holds the ball — drop back outside 5m zone!
+            if (blueHasBall && holder.isGK) {
+              markTarget.x = Math.max(markTarget.x, -POOL.HALF_X + 5.2);
+            }
+            const caughtUpPool = p.position.x < ball.position.x - 2.0;
+            this._steerToward(p, markTarget, dt, caughtUpPool || (blueHasBall && holder.isGK), ball.position, diff.aiSpeedMult);
+          }
+        }
+      }
+
+      _updateSwimOff(dt, engine) {
+        const ballPos = engine.ball.position;
+        const blueSprinter = engine.blueTeam[3];
+        const whiteSprinter = engine.whiteTeam[3];
+
+        for (let i = 1; i < 7; i++) {
+          const bp = engine.blueTeam[i];
+          if (bp !== engine.controlled) {
+            const target = bp === blueSprinter ? ballPos : new THREE.Vector3(-3.0, 0, bp.position.z);
+            this._steerToward(bp, target, dt, true, ballPos, 1.0);
+          }
+          const wp = engine.whiteTeam[i];
+          const wTarget = wp === whiteSprinter ? ballPos : new THREE.Vector3(3.0, 0, wp.position.z);
+          this._steerToward(wp, wTarget, dt, true, ballPos, engine.diff.aiSpeedMult);
+        }
+      }
+
+      _findNearestField(teamArr, pos, exclude = null) {
+        let best = null;
+        let bestDist = Infinity;
+        for (let i = 1; i < teamArr.length; i++) {
+          const p = teamArr[i];
+          if (p === exclude || p.excludedTimer > 0) continue;
+          const d = p.position.distanceTo(pos);
+          if (d < bestDist) {
+            bestDist = d;
+            best = p;
+          }
+        }
+        return best;
+      }
+
+      _steerToExclusionBox(p, dt) {
+        const boxX = p.team === TEAM.BLUE ? -POOL.HALF_X + 0.95 : POOL.HALF_X - 0.95;
+        const boxZ = -POOL.HALF_Z + 0.9;
+        this._steerToward(p, new THREE.Vector3(boxX, 0, boxZ), dt, true, new THREE.Vector3(0, 0, 0), 1.0);
+      }
+
+      _updateWhiteBallCarrier(p, dt, engine) {
+        const diff = engine.diff;
+        const blueGK = engine.blueTeam[0];
+        const goalCenter = new THREE.Vector3(-POOL.HALF_X, 0, 0);
+        const distToGoal = p.position.distanceTo(goalCenter);
+
+        // Execute active shot windup
+        if (this.whiteWindupTimer > 0 && this.whitePendingShot) {
+          p.isCharging = true;
+          this.whiteWindupTimer -= dt;
+          p.chargeRatio = Math.min(1, 1 - this.whiteWindupTimer / diff.windupTime);
+          p.velocity.multiplyScalar(Math.exp(-5 * dt));
+          p.facing = Math.atan2(this.whitePendingShot.target.z - p.position.z, this.whitePendingShot.target.x - p.position.x);
+
+          if (this.whiteWindupTimer <= 0) {
+            p.isCharging = false;
+            p.chargeRatio = 0;
+            const shot = this.whitePendingShot;
+            this.whitePendingShot = null;
+            engine.performShot(p, shot.target, shot.power, shot.isLob);
+          }
+          return;
+        }
+
+        // Hold position / advance deliberately into attack arc (respecting 2m offside!)
+        const minAdvanceX = Math.max(-9.6, p.position.x - 3.0);
+        const advancePos = new THREE.Vector3(minAdvanceX, 0, THREE.MathUtils.clamp(p.position.z * 0.92, -7.2, 7.2));
+        const hasOpenBreak = p.position.x < 0 && engine.blueTeam.filter((b, idx) => idx > 0 && b.position.x < p.position.x).length <= 1;
+        this._steerToward(p, advancePos, dt, hasOpenBreak, goalCenter, diff.aiSpeedMult);
+
+        if (this.whiteDecisionCooldown > 0 || p.fakeTimer > 0) return;
+
+        // 1. Counter-attack outlet pass if a White teammate is ahead of Blue defense
+        if (engine.counterTimer > 0 && engine.counterTeam === TEAM.WHITE && Math.random() < diff.counterAwareness) {
+          let bestBreak = null;
+          let bestGain = 1.8;
+          for (let j = 1; j < engine.whiteTeam.length; j++) {
+            const m = engine.whiteTeam[j];
+            if (m === p || m.excludedTimer > 0) continue;
+            const gain = p.position.x - m.position.x;
+            const nearestBlue = Math.min(...engine.blueTeam.filter((b) => b.index > 0).map((b) => b.position.distanceTo(m.position)));
+            if (gain > bestGain && nearestBlue > 1.8 && this._isLaneClear(p.position, m.position, engine.blueTeam, 0.9)) {
+              bestGain = gain;
+              bestBreak = m;
+            }
+          }
+          if (bestBreak) {
+            engine.performPass(p, bestBreak);
+            this.whiteDecisionCooldown = diff.decisionCd * 0.85;
+            return;
+          }
+        }
+
+        // 2. Check if shooting lane is open & in shooting range
+        const shotBlocked = engine.blueTeam.some((b) =>
+          b.index > 0 &&
+          b.excludedTimer <= 0 &&
+          b.position.x < p.position.x &&
+          p.position.distanceTo(b.position) < 2.2 &&
+          Math.abs(b.position.z - p.position.z) < 0.95
+        );
+        const urgent = engine.shotClock < 6.5;
+
+        if ((distToGoal < 9.4 && !shotBlocked) || (distToGoal < 12.2 && urgent)) {
+          // Optional Pump Fake (Baulk) to bait Blue GK before shooting!
+          if (Math.random() < diff.fakeChance && !urgent && blueGK.lungeCooldown <= 0) {
+            engine.performPumpFake(p);
+            this.whiteDecisionCooldown = 0.42;
+            return;
+          }
+
+          // Pick corner away from Blue Goalkeeper's current z
+          const openCornerZ = blueGK.position.z > 0 ? -1.12 : 1.12;
+          const jitter = (Math.random() - 0.5) * diff.shotAccuracyJitter;
+          const targetZ = THREE.MathUtils.clamp(openCornerZ + jitter, -1.35, 1.35);
+          const isLob = blueGK.position.x > -11.4 && Math.random() < 0.45;
+          const target = new THREE.Vector3(-POOL.HALF_X - 0.25, isLob ? 0.72 : 0.35, targetZ);
+
+          this.whitePendingShot = {
+            target,
+            power: isLob ? 0.58 : (0.68 + Math.random() * 0.26),
+            isLob,
+          };
+          this.whiteWindupTimer = diff.windupTime;
+          this.whiteDecisionCooldown = diff.decisionCd * 1.25;
+          return;
+        }
+
+        // 3. Smart Perimeter Swing or 2m Center Forward Entry Pass
+        const underPressure = engine.blueTeam.some((b) => b.index > 0 && b.position.distanceTo(p.position) < 2.35);
+        if (underPressure || shotBlocked || Math.random() < 0.65 * dt) {
+          let bestMate = null;
+          let bestScore = -999;
+          for (let j = 1; j < engine.whiteTeam.length; j++) {
+            const m = engine.whiteTeam[j];
+            if (m === p || m.excludedTimer > 0) continue;
+            // Avoid 2m offside pass
+            if (m.position.x < -10.5 && p.position.x > -10.5) continue;
+            if (!this._isLaneClear(p.position, m.position, engine.blueTeam, 0.88)) continue;
+
+            const nearestBlue = Math.min(...engine.blueTeam.filter((b) => b.index > 0).map((b) => b.position.distanceTo(m.position)));
+            const distGoalGain = p.position.distanceTo(goalCenter) - m.position.distanceTo(goalCenter);
+            const isCenterFeed = j === 6 && nearestBlue > 1.3;
+            const score = nearestBlue * 1.3 + distGoalGain * 0.65 + (isCenterFeed ? 1.8 : 0);
+            if (score > bestScore) {
+              bestScore = score;
+              bestMate = m;
+            }
+          }
+          if (bestMate && bestScore > 1.2) {
+            engine.performPass(p, bestMate);
+            this.whiteDecisionCooldown = diff.decisionCd;
+          }
+        }
+      }
+
+      _updateGoalkeeper(gk, dt, engine) {
+        const isBlue = gk.team === TEAM.BLUE;
+        const goalX = isBlue ? -POOL.HALF_X + 0.58 : POOL.HALF_X - 0.58;
+        const ball = engine.ball;
+        const reactMult = isBlue ? 1.0 : engine.diff.gkReactMult;
+
+        // If the user is controlling Blue GK in possession, let user aim/move/pass manually!
+        if (gk === engine.controlled && gk.hasBall) {
+          this.gkHoldTimer[gk.team] = 0;
+          return;
+        }
+
+        // If AI GK caught the ball, scan for Counter-Attack outlet pass first!
+        if (gk.hasBall) {
+          this.gkHoldTimer[gk.team] += dt;
+          gk.velocity.multiplyScalar(Math.exp(-8 * dt));
+          gk.facing = isBlue ? 0 : Math.PI;
+          const holdLimit = isBlue ? 1.8 : 0.78;
+          if (this.gkHoldTimer[gk.team] > holdLimit) {
+            this.gkHoldTimer[gk.team] = 0;
+            const mates = isBlue ? engine.blueTeam : engine.whiteTeam;
+            const oppTeam = isBlue ? engine.whiteTeam : engine.blueTeam;
+            let best = mates[1];
+            let bestScore = -999;
+            for (let i = 1; i < mates.length; i++) {
+              const m = mates[i];
+              if (m.excludedTimer > 0) continue;
+              const minOpp = Math.min(...oppTeam.map((o) => o.position.distanceTo(m.position)));
+              const upPoolGain = isBlue ? m.position.x : -m.position.x;
+              const counterBonus = m.isCountering ? 3.5 : 0;
+              const score = minOpp * 1.5 + upPoolGain * 0.35 + counterBonus;
+              if (score > bestScore) {
+                bestScore = score;
+                best = m;
+              }
+            }
+            engine.performPass(gk, best);
+          }
+          return;
+        }
+        this.gkHoldTimer[gk.team] = 0;
+
+        // Check incoming shot heading toward goal
+        const incoming =
+          ball.state === 'flight' &&
+          (isBlue ? ball.velocity.x < -5.0 : ball.velocity.x > 5.0) &&
+          Math.abs(ball.position.x - goalX) < 11.5;
+
+        if (incoming && gk.lungeCooldown <= 0) {
+          const tHit = Math.abs((goalX - ball.position.x) / (ball.velocity.x || 0.001));
+          const predZ = THREE.MathUtils.clamp(ball.position.z + ball.velocity.z * tHit, -1.36, 1.36);
+          if (Math.abs(predZ - gk.position.z) > 0.24) {
+            gk.lungeTimer = 0.38;
+            gk.lungeCooldown = 0.95 / reactMult;
+            gk.lungeDir.set(0, 0, Math.sign(predZ - gk.position.z));
+            gk.velocity.z = gk.lungeDir.z * (4.1 * reactMult);
+          }
+        }
+
+        // Track angle between shooter/ball and goal center
+        if (gk.lungeTimer <= 0) {
+          const desiredZ = THREE.MathUtils.clamp(ball.position.z * 0.25, -1.2, 1.2);
+          const target = new THREE.Vector3(goalX, 0, desiredZ);
+          const diffVec = target.sub(gk.position);
+          diffVec.y = 0;
+          const dist = diffVec.length();
+          if (dist > 0.05) {
+            diffVec.normalize();
+            const trackSpd = 2.45 * reactMult;
+            gk.velocity.x = THREE.MathUtils.lerp(gk.velocity.x, diffVec.x * trackSpd, dt * 6);
+            gk.velocity.z = THREE.MathUtils.lerp(gk.velocity.z, diffVec.z * trackSpd, dt * 6);
+          } else {
+            gk.velocity.multiplyScalar(Math.exp(-7 * dt));
+          }
+        }
+        gk.facing = Math.atan2(ball.position.z - gk.position.z, ball.position.x - gk.position.x);
+      }
+
+      _steerToward(swimmer, target, dt, sprint = false, lookAtPos = null, speedMult = 1.0) {
+        const dx = target.x - swimmer.position.x;
+        const dz = target.z - swimmer.position.z;
+        const dist = Math.hypot(dx, dz);
+
+        swimmer.isSprinting = sprint && swimmer.stamina > 12 && dist > 1.1;
+        // Authentic slower water polo swim speeds
+        let maxSpeed = (swimmer.isSprinting ? 3.55 : 2.42) * speedMult;
+        if (swimmer.hasBall) maxSpeed *= 0.86;
+
+        if (dist > 0.32) {
+          const nx = dx / dist;
+          const nz = dz / dist;
+          const wantSpeed = dist < 1.05 ? maxSpeed * (dist / 1.05) : maxSpeed;
+          swimmer.velocity.x = THREE.MathUtils.lerp(swimmer.velocity.x, nx * wantSpeed, dt * 4.6);
+          swimmer.velocity.z = THREE.MathUtils.lerp(swimmer.velocity.z, nz * wantSpeed, dt * 4.6);
+        } else {
+          swimmer.velocity.x *= Math.exp(-4.5 * dt);
+          swimmer.velocity.z *= Math.exp(-4.5 * dt);
+        }
+
+        // Smooth facing
+        let targetYaw = swimmer.facing;
+        if (dist > 0.6) {
+          targetYaw = Math.atan2(dz, dx);
+        } else if (lookAtPos) {
+          targetYaw = Math.atan2(lookAtPos.z - swimmer.position.z, lookAtPos.x - swimmer.position.x);
+        }
+        swimmer.facing = lerpAngle(swimmer.facing, targetYaw, dt * 7.5);
+      }
+    }
+
+    function lerpAngle(a, b, t) {
+      let diff = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
+      if (diff < -Math.PI) diff += Math.PI * 2;
+      return a + diff * Math.min(1, t);
+    }
+
+    // =========================================================================
+    // RENDERER 3D (Scene, Broadcast Camera, Lighting, FIFA On-Water Visual Cues)
+    // =========================================================================
+    class Renderer3D {
+      constructor(container) {
+        this.container = container;
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x06192e);
+        this.scene.fog = new THREE.FogExp2(0x06192e, 0.011);
+
+        const aspect = container.clientWidth / Math.max(1, container.clientHeight);
+        this.camera = new THREE.PerspectiveCamera(44, aspect, 0.2, 160);
+        this.camera.position.set(0, 13.5, 19.5);
+        this.camLookAt = new THREE.Vector3(0, 0.2, 0);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        this.renderer.setSize(container.clientWidth, container.clientHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.08;
+        container.appendChild(this.renderer.domElement);
+
+        this._setupLighting();
+        this._buildOnWaterCues();
+
+        window.addEventListener('resize', () => this.onResize());
+      }
+
+      _setupLighting() {
+        const hemi = new THREE.HemisphereLight(0xdbeafe, 0x0b4f6c, 0.85);
+        this.scene.add(hemi);
+
+        // Main arena sunlight / floodlight key casting shadows
+        const sun = new THREE.DirectionalLight(0xfffbeb, 1.95);
+        sun.position.set(12, 22, 14);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.camera.near = 4;
+        sun.shadow.camera.far = 65;
+        sun.shadow.camera.left = -20;
+        sun.shadow.camera.right = 20;
+        sun.shadow.camera.top = 16;
+        sun.shadow.camera.bottom = -16;
+        sun.shadow.bias = -0.0005;
+        this.scene.add(sun);
+
+        // Cool stadium rim light from opposite side
+        const rim = new THREE.DirectionalLight(0x38bdf8, 0.7);
+        rim.position.set(-14, 14, -14);
+        this.scene.add(rim);
+
+        // Subtle underwater bounce glow
+        const poolGlow = new THREE.PointLight(0x06b6d4, 1.1, 35);
+        poolGlow.position.set(0, -1.2, 0);
+        this.scene.add(poolGlow);
+      }
+
+      _buildOnWaterCues() {
+        // Active controlled player glowing FIFA ring + direction chevron
+        this.activeRingGroup = new THREE.Group();
+        const outerRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.46, 0.58, 32),
+          new THREE.MeshBasicMaterial({
+            color: 0x22d3ee,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          })
+        );
+        outerRing.rotation.x = -Math.PI / 2;
+        const innerGlow = new THREE.Mesh(
+          new THREE.RingGeometry(0.32, 0.46, 32),
+          new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.25,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          })
+        );
+        innerGlow.rotation.x = -Math.PI / 2;
+        const chevron = new THREE.Mesh(
+          new THREE.ConeGeometry(0.14, 0.24, 3),
+          new THREE.MeshBasicMaterial({ color: 0xfacc15, depthWrite: false })
+        );
+        chevron.rotation.z = -Math.PI / 2;
+        chevron.position.set(0.68, 0.02, 0);
+        this.activeRingGroup.add(outerRing, innerGlow, chevron);
+        this.activeRingGroup.position.y = 0.035;
+        this.scene.add(this.activeRingGroup);
+
+        // Subtle secondary pass-target ring
+        this.targetRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.44, 0.54, 28),
+          new THREE.MeshBasicMaterial({
+            color: 0xfacc15,
+            transparent: true,
+            opacity: 0.65,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          })
+        );
+        this.targetRing.rotation.x = -Math.PI / 2;
+        this.targetRing.position.y = 0.035;
+        this.targetRing.visible = false;
+        this.scene.add(this.targetRing);
+
+        // 3D Aim Arrow on water surface
+        this.aimArrowGroup = new THREE.Group();
+        const shaft = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.4, 0.12),
+          new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.72,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          })
+        );
+        shaft.rotation.x = -Math.PI / 2;
+        shaft.position.x = 1.25;
+        const tip = new THREE.Mesh(
+          new THREE.ConeGeometry(0.18, 0.34, 4),
+          new THREE.MeshBasicMaterial({
+            color: 0xfef08a,
+            transparent: true,
+            opacity: 0.88,
+            depthWrite: false,
+          })
+        );
+        tip.rotation.z = -Math.PI / 2;
+        tip.position.x = 2.05;
+        this.aimArrowGroup.add(shaft, tip);
+        this.aimArrowGroup.position.y = 0.04;
+        this.scene.add(this.aimArrowGroup);
+
+        // Curved Power/Elevation Gauge beside shooter
+        this.powerGaugeGroup = new THREE.Group();
+        const bgArc = new THREE.Mesh(
+          new THREE.RingGeometry(0.72, 0.84, 28, 1, -Math.PI * 0.45, Math.PI * 0.9),
+          new THREE.MeshBasicMaterial({
+            color: 0x0f172a,
+            transparent: true,
+            opacity: 0.65,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          })
+        );
+        bgArc.rotation.x = -Math.PI / 2;
+        this.powerGaugeGroup.add(bgArc);
+
+        this.powerArcMat = new THREE.MeshBasicMaterial({
+          color: 0x10b981,
+          transparent: true,
+          opacity: 0.95,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        this.powerArcMesh = new THREE.Mesh(
+          new THREE.RingGeometry(0.73, 0.83, 24, 1, -Math.PI * 0.45, 0.05),
+          this.powerArcMat
+        );
+        this.powerArcMesh.rotation.x = -Math.PI / 2;
+        this.powerArcMesh.position.y = 0.005;
+        this.powerGaugeGroup.add(this.powerArcMesh);
+        this.powerGaugeGroup.position.y = 0.045;
+        this.powerGaugeGroup.visible = false;
+        this.scene.add(this.powerGaugeGroup);
+      }
+
+      updateBroadcastCamera(dt, ball, time) {
+        const ballSpeed = Math.hypot(ball.velocity.x, ball.velocity.z);
+        // Subtle zoom out on high ball speed & near corners, zoom slightly closer near goals
+        const speedZoom = THREE.MathUtils.clamp(ballSpeed * 0.18, 0, 2.2);
+        const pitchEdgeFactor = Math.abs(ball.position.z) * 0.18;
+        const targetX = THREE.MathUtils.clamp(ball.position.x * 0.62, -7.8, 7.8);
+        const targetY = 12.2 + speedZoom * 0.75 + pitchEdgeFactor * 0.4;
+        const targetZ = 18.2 + ball.position.z * 0.25 + speedZoom + pitchEdgeFactor;
+
+        const lerpF = Math.min(1, dt * 3.8);
+        this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, targetX, lerpF);
+        this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, targetY, lerpF);
+        this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, targetZ, lerpF);
+
+        const desiredLookX = THREE.MathUtils.clamp(ball.position.x * 0.78, -9.5, 9.5);
+        const desiredLookZ = THREE.MathUtils.clamp(ball.position.z * 0.48, -4.5, 4.5);
+        this.camLookAt.x = THREE.MathUtils.lerp(this.camLookAt.x, desiredLookX, Math.min(1, dt * 5.0));
+        this.camLookAt.y = 0.25;
+        this.camLookAt.z = THREE.MathUtils.lerp(this.camLookAt.z, desiredLookZ, Math.min(1, dt * 5.0));
+        this.camera.lookAt(this.camLookAt);
+      }
+
+      updateVisualCues(controlled, passTarget, aimPoint, chargeRatio, isCharging, time) {
+        if (!controlled) return;
+        const pulse = 1 + Math.sin(time * 6) * 0.06;
+
+        // Active ring under controlled Blue player
+        this.activeRingGroup.position.set(controlled.position.x, 0.035, controlled.position.z);
+        this.activeRingGroup.scale.set(pulse, 1, pulse);
+        this.activeRingGroup.rotation.y = -controlled.facing;
+
+        // Pass target ring
+        if (passTarget && controlled.hasBall) {
+          this.targetRing.visible = true;
+          this.targetRing.position.set(passTarget.position.x, 0.035, passTarget.position.z);
+          const tp = 1 + Math.sin(time * 7 + 1) * 0.08;
+          this.targetRing.scale.set(tp, tp, 1);
+        } else {
+          this.targetRing.visible = false;
+        }
+
+        // 3D Aim Arrow on water surface
+        const aimAngle = Math.atan2(aimPoint.z - controlled.position.z, aimPoint.x - controlled.position.x);
+        this.aimArrowGroup.visible = true;
+        this.aimArrowGroup.position.set(controlled.position.x, 0.04, controlled.position.z);
+        this.aimArrowGroup.rotation.y = -aimAngle;
+        const arrowLen = controlled.hasBall ? (1.0 + chargeRatio * 0.65) : 0.75;
+        this.aimArrowGroup.scale.set(arrowLen, 1, 1);
+
+        // Curved Power / Elevation Gauge beside shooter
+        if (controlled.hasBall && isCharging && chargeRatio > 0.04) {
+          this.powerGaugeGroup.visible = true;
+          this.powerGaugeGroup.position.set(controlled.position.x, 0.048, controlled.position.z);
+          this.powerGaugeGroup.rotation.y = -aimAngle;
+
+          // Update arc sweep dynamically
+          const sweep = Math.max(0.06, chargeRatio * Math.PI * 0.9);
+          this.powerArcMesh.geometry.dispose();
+          this.powerArcMesh.geometry = new THREE.RingGeometry(
+            0.73,
+            0.83 + chargeRatio * 0.06,
+            24,
+            1,
+            -Math.PI * 0.45,
+            sweep
+          );
+          if (chargeRatio < 0.45) this.powerArcMat.color.setHex(0x10b981);
+          else if (chargeRatio < 0.78) this.powerArcMat.color.setHex(0xfbbf24);
+          else this.powerArcMat.color.setHex(0xef4444);
+        } else {
+          this.powerGaugeGroup.visible = false;
+        }
+      }
+
+      onResize() {
+        const w = this.container.clientWidth;
+        const h = Math.max(1, this.container.clientHeight);
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+      }
+
+      render() {
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+
+    // =========================================================================
+    // GAME ENGINE (Match State, Physics, Input, HUD Sync)
+    // =========================================================================
+    class GameEngine {
+      constructor() {
+        this.container = document.getElementById('webgl-container');
+        this.renderer3D = new Renderer3D(this.container);
+        this.arena = new PoolArena(this.renderer3D.scene);
+        this.ball = new Ball3D(this.renderer3D.scene);
+        this.ai = new AIController();
+        this.sfx = new SoundFX();
+
+        // Teams (7v7)
+        this.blueTeam = [];
+        this.whiteTeam = [];
+        this.allSwimmers = [];
+        this._spawnTeams();
+
+        // Match State
+        this.difficultyKey = 'pro';
+        this.mode = 'menu'; // 'menu' | 'playing' | 'paused' | 'goal_pause' | 'full_time'
+        this.score = { blue: 0, white: 0 };
+        this.quarter = 1;
+        this.quarterClock = 120; // 2:00 per quarter
+        this.shotClock = 30;
+        this.matchElapsed = 0;
+        this.goalPauseTimer = 0;
+        this.bannerTimer = 0;
+        this.lastPossessionTeam = null;
+        this.swimOffActive = false;
+        this.counterTeam = null;
+        this.counterTimer = 0;
+
+        // Player Control & Input State
+        this.controlled = this.blueTeam[6]; // Start with Center Forward / Playmaker
+        this.autoSwitch = true;
+        this.manualSwitchLockTimer = 0;
+        this.keys = new Set();
+        this.mouseNDC = new THREE.Vector2(0.25, 0);
+        this.raycaster = new THREE.Raycaster();
+        this.waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        this.aimPoint = new THREE.Vector3(6, 0, 0);
+
+        this.spaceHeld = false;
+        this.spaceDownTime = 0;
+        this.chargeRatio = 0;
+
+        this.clock = new THREE.Clock();
+
+        this._bindInputAndUI();
+        this._startQuarterSwimOff();
+        this._syncHUD();
+        this._loop();
+      }
+
+      get diff() {
+        return DIFFICULTY_PROFILES[this.difficultyKey] || DIFFICULTY_PROFILES.pro;
+      }
+
+      _spawnTeams() {
+        for (let i = 0; i < 7; i++) {
+          const b = new SwimmerRig(this.renderer3D.scene, TEAM.BLUE, i, i + 1, i === 0);
+          const w = new SwimmerRig(this.renderer3D.scene, TEAM.WHITE, i, i + 1, i === 0);
+          this.blueTeam.push(b);
+          this.whiteTeam.push(w);
+          this.allSwimmers.push(b, w);
+        }
+      }
+
+      _clearPlayerActionStates() {
+        for (const s of this.allSwimmers) {
+          s.velocity.set(0, 0, 0);
+          s.stamina = Math.max(s.stamina, 85);
+          s.hasBall = false;
+          s.isCharging = false;
+          s.chargeRatio = 0;
+          s.fakeTimer = 0;
+          s.foulImmunity = 0;
+          s.isCountering = false;
+          s.excludedTimer = 0;
+        }
+        this.counterTeam = null;
+        this.counterTimer = 0;
+      }
+
+      _startQuarterSwimOff() {
+        this._clearPlayerActionStates();
+        const lanes = [0, -6.2, 6.2, 0.0, -3.5, 3.5, -1.6];
+        for (let i = 0; i < 7; i++) {
+          const bx = i === 0 ? -11.95 : -10.2;
+          const wx = i === 0 ? 11.95 : 10.2;
+          this.blueTeam[i].position.set(bx, 0, lanes[i]);
+          this.blueTeam[i].facing = 0;
+          this.whiteTeam[i].position.set(wx, 0, lanes[i]);
+          this.whiteTeam[i].facing = Math.PI;
+        }
+        this.ball.holder = null;
+        this.ball.state = 'floating';
+        this.ball.isShot = false;
+        this.ball.passTarget = null;
+        this.ball.position.set(0, 0.06, 0);
+        this.ball.velocity.set(0, 0, 0);
+        this.ball.mesh.position.copy(this.ball.position);
+
+        this.controlled = this.blueTeam[3]; // Point sprints for the center swim-off!
+        this.swimOffActive = true;
+        this.shotClock = 30;
+        this.lastPossessionTeam = null;
+      }
+
+      _resetPositions(startingTeam = TEAM.BLUE) {
+        this._clearPlayerActionStates();
+        this.swimOffActive = false;
+        const blueStarts = [
+          [-11.95, 0],
+          [-5.2, -5.2],
+          [-5.2,  5.2],
+          [-2.0,  0.0],
+          [-3.2, -6.5],
+          [-3.2,  6.5],
+          [-1.0,  0.0],
+        ];
+        const whiteStarts = [
+          [11.95, 0],
+          [5.2, -5.2],
+          [5.2,  5.2],
+          [2.0,  0.0],
+          [3.2, -6.5],
+          [3.2,  6.5],
+          [1.0,  0.0],
+        ];
+
+        for (let i = 0; i < 7; i++) {
+          this.blueTeam[i].position.set(blueStarts[i][0], 0, blueStarts[i][1]);
+          this.blueTeam[i].facing = 0;
+          this.whiteTeam[i].position.set(whiteStarts[i][0], 0, whiteStarts[i][1]);
+          this.whiteTeam[i].facing = Math.PI;
+        }
+
+        const starter = startingTeam === TEAM.BLUE ? this.blueTeam[3] : this.whiteTeam[3];
+        this.ball.attachTo(starter);
+        this.controlled = startingTeam === TEAM.BLUE ? this.blueTeam[3] : this.blueTeam[6];
+        this.shotClock = 30;
+        this.lastPossessionTeam = startingTeam;
+      }
+
+      _setDifficulty(key) {
+        if (!DIFFICULTY_PROFILES[key]) return;
+        this.difficultyKey = key;
+        document.querySelectorAll('.diff-btn').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.diff === key);
+        });
+        document.getElementById('diff-desc').textContent = this.diff.desc;
+        document.getElementById('btn-diff').textContent = `DIFF: ${this.diff.label}`;
+      }
+
+      _bindInputAndUI() {
+        const btnStart = document.getElementById('btn-start');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnPause = document.getElementById('btn-pause');
+        const btnSound = document.getElementById('btn-sound');
+        const btnDiff = document.getElementById('btn-diff');
+        const btnAutoSw = document.getElementById('btn-autosw');
+
+        btnAutoSw.addEventListener('click', () => {
+          this.autoSwitch = !this.autoSwitch;
+          btnAutoSw.textContent = `AUTO-SW: ${this.autoSwitch ? 'ON' : 'OFF'}`;
+        });
+
+        document.querySelectorAll('.diff-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            this._setDifficulty(btn.dataset.diff);
+          });
+        });
+
+        btnDiff.addEventListener('click', () => {
+          const order = ['rookie', 'pro', 'olympic'];
+          const next = order[(order.indexOf(this.difficultyKey) + 1) % order.length];
+          this._setDifficulty(next);
+        });
+
+        btnStart.addEventListener('click', () => {
+          this.sfx.ensure();
+          if (this.mode === 'full_time') {
+            this.restartMatch();
+          } else {
+            this.resumeMatch();
+          }
+        });
+
+        btnRestart.addEventListener('click', () => {
+          this.sfx.ensure();
+          this.restartMatch();
+        });
+
+        btnPause.addEventListener('click', () => this.togglePause());
+
+        btnSound.addEventListener('click', () => {
+          this.sfx.enabled = !this.sfx.enabled;
+          btnSound.textContent = `SFX: ${this.sfx.enabled ? 'ON' : 'OFF'}`;
+        });
+
+        // Prevent context menu on canvas so Right-Click performs Pump Fake cleanly
+        this.renderer3D.renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+        this.renderer3D.renderer.domElement.addEventListener('mousedown', (e) => {
+          if (e.button === 2 && this.mode === 'playing' && this.controlled.hasBall) {
+            this.performPumpFake(this.controlled);
+          }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+          const rect = this.renderer3D.renderer.domElement.getBoundingClientRect();
+          this.mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          this.mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        });
+
+        window.addEventListener('keydown', (e) => {
+          const code = e.code;
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) {
+            e.preventDefault();
+          }
+
+          if (code === 'KeyP' || code === 'Escape') {
+            if (this.mode === 'playing' || this.mode === 'paused') {
+              this.togglePause();
+            }
+            return;
+          }
+
+          if (this.mode !== 'playing') return;
+
+          this.keys.add(code);
+
+          // Space: start pass/shot charge
+          if (code === 'Space' && !e.repeat) {
+            if (this.controlled.hasBall) {
+              this.spaceHeld = true;
+              this.spaceDownTime = performance.now();
+              this.chargeRatio = 0;
+              this.controlled.isCharging = true;
+            }
+          }
+
+          // R: Lob Shot over lunging / high-treading goalkeeper
+          if (code === 'KeyR' && !e.repeat) {
+            if (this.controlled.hasBall) {
+              this.spaceHeld = false;
+              this.controlled.isCharging = false;
+              this.controlled.chargeRatio = 0;
+              this.chargeRatio = 0;
+              this.performShot(this.controlled, this.aimPoint, 0.58, true);
+            }
+          }
+
+          // B: Keyboard Pump Fake / Baulk
+          if (code === 'KeyB' && !e.repeat) {
+            if (this.controlled.hasBall) {
+              this.performPumpFake(this.controlled);
+            }
+          }
+
+          // E: Switch nearest to ball OR call for pass if teammate holds ball
+          if (code === 'KeyE' && !e.repeat) {
+            if (this.ball.holder && this.ball.holder.team === TEAM.BLUE && this.ball.holder !== this.controlled) {
+              this.performPass(this.ball.holder, this.controlled);
+            } else {
+              this._switchNearestBlue();
+              this.manualSwitchLockTimer = 2.6;
+            }
+          }
+
+          // Q: Cycle controlled Blue field player
+          if (code === 'KeyQ' && !e.repeat) {
+            this._cycleBluePlayer();
+            this.manualSwitchLockTimer = 2.6;
+          }
+
+          // F: Close-range steal/tackle lunge
+          if (code === 'KeyF' && !e.repeat) {
+            this.performStealLunge(this.controlled);
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          this.keys.delete(e.code);
+
+          if (e.code === 'Space' && this.spaceHeld) {
+            this.spaceHeld = false;
+            this.controlled.isCharging = false;
+            this.controlled.chargeRatio = 0;
+
+            if (this.mode === 'playing' && this.controlled.hasBall) {
+              const heldMs = performance.now() - this.spaceDownTime;
+              if (heldMs < 210) {
+                // Quick Tap -> Pass to best-aligned teammate
+                const target = this._findBestPassTarget(this.controlled);
+                if (target) {
+                  this.performPass(this.controlled, target);
+                } else {
+                  this.performShot(this.controlled, this.aimPoint, 0.35, false);
+                }
+              } else {
+                // Hold & Release -> Ballistic 3D Shot / Skip Shot
+                const power = THREE.MathUtils.clamp((heldMs - 170) / 900, 0.28, 1.0);
+                this.performShot(this.controlled, this.aimPoint, power, false);
+              }
+            }
+            this.chargeRatio = 0;
+          }
+        });
+      }
+
+      resumeMatch() {
+        const wasMenu = this.mode === 'menu';
+        this.mode = 'playing';
+        document.getElementById('overlay').classList.add('hidden');
+        this.sfx.playWhistle(false);
+        if (wasMenu && this.swimOffActive) {
+          this._showBanner('Q1 SWIM OFF!', 'SPRINT FOR OPENING POSSESSION', 1.7);
+        }
+      }
+
+      togglePause() {
+        const overlay = document.getElementById('overlay');
+        const title = document.getElementById('overlay-title');
+        const sub = document.getElementById('overlay-sub');
+        const btnStart = document.getElementById('btn-start');
+        const btnRestart = document.getElementById('btn-restart');
+        const finalBox = document.getElementById('final-score-box');
+
+        if (this.mode === 'playing') {
+          this.mode = 'paused';
+          this.keys.clear();
+          this.spaceHeld = false;
+          this.controlled.isCharging = false;
+          title.textContent = 'MATCH PAUSED';
+          sub.textContent = 'Adjust difficulty or review tactics before diving back into the pool.';
+          btnStart.textContent = 'RESUME MATCH';
+          btnRestart.style.display = 'inline-block';
+          finalBox.classList.remove('visible');
+          overlay.classList.remove('hidden');
+        } else if (this.mode === 'paused') {
+          this.resumeMatch();
+        }
+      }
+
+      restartMatch() {
+        this.score.blue = 0;
+        this.score.white = 0;
+        this.quarter = 1;
+        this.quarterClock = 120;
+        this.shotClock = 30;
+        this.keys.clear();
+        this.spaceHeld = false;
+        this.chargeRatio = 0;
+        document.getElementById('final-score-box').classList.remove('visible');
+        document.getElementById('btn-restart').style.display = 'none';
+        this._startQuarterSwimOff();
+        this._syncHUD();
+        this.resumeMatch();
+      }
+
+      _showBanner(title, subtitle, duration = 2.0) {
+        const el = document.getElementById('event-banner');
+        document.getElementById('event-title').textContent = title;
+        document.getElementById('event-subtitle').textContent = subtitle;
+        el.classList.add('visible');
+        this.bannerTimer = duration;
+      }
+
+      _updateAimWorldPoint() {
+        this.raycaster.setFromCamera(this.mouseNDC, this.renderer3D.camera);
+        const hit = new THREE.Vector3();
+        if (this.raycaster.ray.intersectPlane(this.waterPlane, hit)) {
+          hit.x = THREE.MathUtils.clamp(hit.x, -POOL.HALF_X - 1.5, POOL.HALF_X + 1.5);
+          hit.z = THREE.MathUtils.clamp(hit.z, -POOL.HALF_Z - 1.0, POOL.HALF_Z + 1.0);
+          this.aimPoint.copy(hit);
+        }
+      }
+
+      _findBestPassTarget(passer) {
+        const aimDir = new THREE.Vector3(
+          this.aimPoint.x - passer.position.x,
+          0,
+          this.aimPoint.z - passer.position.z
+        );
+        if (aimDir.lengthSq() < 0.01) {
+          aimDir.set(Math.cos(passer.facing), 0, Math.sin(passer.facing));
+        } else {
+          aimDir.normalize();
+        }
+
+        let best = null;
+        let bestScore = -Infinity;
+        for (const mate of this.blueTeam) {
+          if (mate === passer || mate.excludedTimer > 0) continue;
+          const toMate = new THREE.Vector3(
+            mate.position.x - passer.position.x,
+            0,
+            mate.position.z - passer.position.z
+          );
+          const dist = toMate.length();
+          if (dist < 0.8) continue;
+          toMate.divideScalar(dist);
+          const align = aimDir.dot(toMate); // -1..+1
+          if (align < -0.15) continue;
+          const distPenalty = Math.abs(dist - 7.5) * 0.04;
+          const offsidePenalty = this._isAttackerOffside2m(mate, this.ball.position) ? -1.4 : 0;
+          const score = align * 2.2 - distPenalty + offsidePenalty + (mate.isGK ? -0.45 : 0);
+          if (score > bestScore) {
+            bestScore = score;
+            best = mate;
+          }
+        }
+        return best;
+      }
+
+      _isAttackerOffside2m(swimmer, ballPos) {
+        if (swimmer.isGK) return false;
+        if (swimmer.team === TEAM.BLUE) {
+          return swimmer.position.x > POOL.HALF_X - 2.0 && ballPos.x < POOL.HALF_X - 2.0;
+        }
+        return swimmer.position.x < -POOL.HALF_X + 2.0 && ballPos.x > -POOL.HALF_X + 2.0;
+      }
+
+      performPass(passer, receiver) {
+        if (!passer.hasBall || !receiver || receiver.excludedTimer > 0) return;
+
+        // Real 2m Offside rule: passing to an attacker camped inside 2m ahead of the ball
+        if (this._isAttackerOffside2m(receiver, this.ball.position)) {
+          const oppTeam = passer.team === TEAM.BLUE ? TEAM.WHITE : TEAM.BLUE;
+          const oppGK = oppTeam === TEAM.BLUE ? this.blueTeam[0] : this.whiteTeam[0];
+          this.ball.attachTo(oppGK);
+          this._onPossessionChange(oppTeam, false);
+          if (oppTeam === TEAM.BLUE) {
+            this.controlled = oppGK;
+            this.manualSwitchLockTimer = 0;
+          }
+          this.sfx.playWhistle(true);
+          this._showBanner('2M OFFSIDE', `TURNOVER TO ${oppTeam.toUpperCase()}`, 1.45);
+          return;
+        }
+
+        const origin = new THREE.Vector3();
+        passer.getHandWorldPosition(origin);
+        origin.y = Math.max(0.32, origin.y);
+
+        // Slower, crisp readable water polo pass velocity
+        const dist = origin.distanceTo(receiver.position);
+        const speed = THREE.MathUtils.clamp(8.2 + dist * 0.34, 8.6, 13.2);
+        const flightTime = dist / speed;
+        const targetPos = receiver.position.clone().addScaledVector(receiver.velocity, flightTime * 0.55);
+        targetPos.y = 0.28;
+
+        const dx = targetPos.x - origin.x;
+        const dz = targetPos.z - origin.z;
+        const dy = targetPos.y - origin.y;
+        const vel = new THREE.Vector3(
+          dx / flightTime,
+          (dy + 0.5 * 13.2 * flightTime * flightTime) / flightTime,
+          dz / flightTime
+        );
+
+        passer.facing = Math.atan2(dz, dx);
+        passer.throwSnapTimer = 0.26;
+        this.ball.release(origin, vel, false, receiver);
+        this.sfx.playThrow(0.45);
+
+        // Smoothly switch player control to Blue receiver on user pass
+        if (passer.team === TEAM.BLUE && !receiver.isGK) {
+          this.controlled = receiver;
+          this.manualSwitchLockTimer = 0;
+        }
+      }
+
+      performPumpFake(swimmer) {
+        if (!swimmer.hasBall || swimmer.fakeTimer > 0) return;
+        swimmer.fakeTimer = 0.28;
+        this.sfx.playSplash(0.28);
+
+        // Baulk/pump fake baits opposing goalkeeper within sightline to lunge early!
+        const oppGK = swimmer.team === TEAM.BLUE ? this.whiteTeam[0] : this.blueTeam[0];
+        if (oppGK.lungeCooldown <= 0 && swimmer.position.distanceTo(oppGK.position) < 12.5) {
+          oppGK.lungeTimer = 0.36;
+          oppGK.lungeCooldown = 1.1;
+          const baitDir = Math.sign(this.aimPoint.z - oppGK.position.z) || (Math.random() < 0.5 ? 1 : -1);
+          oppGK.velocity.z = baitDir * 3.6;
+        }
+      }
+
+      performShot(shooter, targetPoint, power, isLob = false) {
+        if (!shooter.hasBall) return;
+        const origin = new THREE.Vector3();
+        shooter.getHandWorldPosition(origin);
+        origin.y = Math.max(0.38, origin.y);
+
+        const goalX = shooter.team === TEAM.BLUE ? POOL.HALF_X : -POOL.HALF_X;
+        const target = targetPoint.clone();
+
+        const shootingAtGoal = shooter.team === TEAM.BLUE ? target.x > shooter.position.x : target.x < shooter.position.x;
+        if (shootingAtGoal && Math.abs(target.x - goalX) < 3.8) {
+          target.x = goalX + (shooter.team === TEAM.BLUE ? 0.32 : -0.32);
+          target.z = THREE.MathUtils.clamp(target.z, -POOL.GOAL_HALF_W + 0.12, POOL.GOAL_HALF_W - 0.12);
+          if (isLob) {
+            target.y = 0.74;
+          } else {
+            target.y = power > 0.76 ? 0.62 : 0.11; // Driven top corner vs water skip shot
+          }
+        } else {
+          target.y = isLob ? 0.78 : (0.24 + power * 0.50);
+        }
+
+        const dx = target.x - origin.x;
+        const dz = target.z - origin.z;
+        const horizDist = Math.max(0.8, Math.hypot(dx, dz));
+        const speed = isLob ? (8.8 + power * 2.5) : (10.8 + power * 9.8);
+        const tFlight = horizDist / speed;
+        const dy = target.y - origin.y;
+
+        const vel = new THREE.Vector3(
+          dx / tFlight,
+          (dy + 0.5 * 13.2 * tFlight * tFlight) / tFlight,
+          dz / tFlight
+        );
+
+        shooter.facing = Math.atan2(dz, dx);
+        shooter.throwSnapTimer = 0.26;
+        this.ball.release(origin, vel, true, null);
+        this.sfx.playThrow(isLob ? 0.55 : power);
+        this.arena.spawnWake(shooter.position.x, shooter.position.z, 1.1, 4);
+      }
+
+      performStealLunge(swimmer) {
+        if (swimmer.lungeCooldown > 0 || swimmer.hasBall || swimmer.excludedTimer > 0) return;
+        swimmer.lungeTimer = 0.34;
+        swimmer.lungeCooldown = 1.05;
+
+        const dir = new THREE.Vector3(Math.cos(swimmer.facing), 0, Math.sin(swimmer.facing));
+        swimmer.velocity.addScaledVector(dir, 3.1);
+        this.arena.spawnWake(swimmer.position.x, swimmer.position.z, 1.1, 5);
+        this.sfx.playSplash(0.6);
+
+        const holder = this.ball.holder;
+        if (holder && holder.team !== swimmer.team && holder.foulImmunity <= 0) {
+          const dist = swimmer.position.distanceTo(holder.position);
+          if (holder.isGK) {
+            if (dist < 2.2 && swimmer.team === TEAM.BLUE) {
+              this.sfx.playWhistle(false);
+              this._showBanner('GK PROTECTED', 'CANNOT ATTACK GOALKEEPER IN POSSESSION', 1.25);
+            }
+            return;
+          }
+          if (dist < 1.22) {
+            // Check angle: lunging from behind triggers a real Water Polo Foul / 20s Exclusion!
+            const toTackler = new THREE.Vector2(
+              swimmer.position.x - holder.position.x,
+              swimmer.position.z - holder.position.z
+            ).normalize();
+            const holderFwd = new THREE.Vector2(Math.cos(holder.facing), Math.sin(holder.facing));
+            const fromBehind = toTackler.dot(holderFwd) < -0.35;
+
+            if (fromBehind && Math.random() < 0.72) {
+              const ownGoalX = swimmer.team === TEAM.BLUE ? -POOL.HALF_X : POOL.HALF_X;
+              const inside4m = Math.abs(holder.position.x - ownGoalX) < 4.5 && holder.index === 6;
+
+              if (inside4m) {
+                // 20-Second Exclusion (Man-Up 6v5!)
+                swimmer.excludedTimer = 20.0;
+                holder.foulImmunity = 1.4;
+                this.shotClock = Math.max(this.shotClock, 20);
+                this.sfx.playWhistle(true);
+                this._showBanner('EXCLUSION (20s)', `${holder.team.toUpperCase()} MAN-UP 6v5!`, 1.7);
+              } else {
+                // Ordinary Foul -> Free Throw protection
+                holder.foulImmunity = 1.35;
+                this.sfx.playWhistle(false);
+                const outside6m = Math.abs(holder.position.x - ownGoalX) > 6.0;
+                this._showBanner(
+                  'ORDINARY FOUL',
+                  outside6m ? 'FREE THROW (DIRECT SHOT OK)' : 'FREE THROW (PASS ONLY)',
+                  1.3
+                );
+              }
+              return;
+            }
+
+            // Clean tackle/steal! Launches counter-attack window
+            holder.throwImmunity = 0.6;
+            this.ball.attachTo(swimmer);
+            this._onPossessionChange(swimmer.team, true);
+            this._showBanner('STEAL!', `${swimmer.team.toUpperCase()} COUNTER ATTACK`, 1.25);
+            this.sfx.playWhistle(false);
+          }
+        }
+      }
+
+      _switchNearestBlue() {
+        let best = this.controlled;
+        let bestDist = Infinity;
+        for (let i = 1; i < this.blueTeam.length; i++) {
+          const p = this.blueTeam[i];
+          if (p.excludedTimer > 0) continue;
+          const d = p.position.distanceTo(this.ball.position);
+          if (d < bestDist) {
+            bestDist = d;
+            best = p;
+          }
+        }
+        this.controlled = best;
+      }
+
+      _cycleBluePlayer() {
+        const idx = this.blueTeam.indexOf(this.controlled);
+        for (let step = 1; step <= 6; step++) {
+          const nextIdx = idx <= 0 ? step : ((idx - 1 + step) % 6) + 1;
+          if (this.blueTeam[nextIdx].excludedTimer <= 0) {
+            this.controlled = this.blueTeam[nextIdx];
+            return;
+          }
+        }
+      }
+
+      _onPossessionChange(newTeam, startCounter = false) {
+        this.swimOffActive = false;
+        if (this.lastPossessionTeam !== newTeam) {
+          this.lastPossessionTeam = newTeam;
+          this.shotClock = 30;
+          if (startCounter) {
+            this.counterTeam = newTeam;
+            this.counterTimer = 4.6;
+          }
+        }
+      }
+
+      _updateControlledPlayer(dt) {
+        const p = this.controlled;
+        if (!p) return;
+
+        if (p.excludedTimer > 0) {
+          this._cycleBluePlayer();
+          return;
+        }
+
+        // 8-way camera-relative swimming (Camera looks along -Z, +X is right)
+        let ix = 0;
+        let iz = 0;
+        if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) iz -= 1;
+        if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) iz += 1;
+        if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) ix -= 1;
+        if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) ix += 1;
+
+        const hasInput = ix !== 0 || iz !== 0;
+        const sprintKey = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+        p.isSprinting = hasInput && sprintKey && p.stamina > 3;
+
+        if (hasInput) {
+          const len = Math.hypot(ix, iz);
+          ix /= len;
+          iz /= len;
+          // Realistic water polo swim pace (slower & readable)
+          let maxSpeed = p.isSprinting ? 3.85 : 2.65;
+          if (p.hasBall) maxSpeed *= 0.86;
+
+          p.velocity.x = THREE.MathUtils.lerp(p.velocity.x, ix * maxSpeed, dt * 5.2);
+          p.velocity.z = THREE.MathUtils.lerp(p.velocity.z, iz * maxSpeed, dt * 5.2);
+        } else {
+          p.velocity.x *= Math.exp(-4.6 * dt);
+          p.velocity.z *= Math.exp(-4.6 * dt);
+        }
+
+        // Facing: face mouse aim when holding ball or idle; otherwise face swim direction
+        if (p.hasBall || !hasInput) {
+          const aimYaw = Math.atan2(this.aimPoint.z - p.position.z, this.aimPoint.x - p.position.x);
+          p.facing = lerpAngle(p.facing, aimYaw, dt * 9.5);
+        } else {
+          const moveYaw = Math.atan2(iz, ix);
+          p.facing = lerpAngle(p.facing, moveYaw, dt * 8.5);
+        }
+
+        // Update charge gauge
+        if (this.spaceHeld && p.hasBall) {
+          const heldMs = performance.now() - this.spaceDownTime;
+          this.chargeRatio = heldMs > 170 ? THREE.MathUtils.clamp((heldMs - 170) / 900, 0, 1) : 0;
+          p.chargeRatio = this.chargeRatio;
+        }
+      }
+
+      _stepSwimmerPhysics(dt) {
+        // Integrate positions, stamina, and pool wall bounds
+        for (const s of this.allSwimmers) {
+          if (s.isSprinting) {
+            s.stamina = Math.max(0, s.stamina - 28 * dt);
+          } else {
+            s.stamina = Math.min(100, s.stamina + 16 * dt);
+          }
+
+          s.position.x += s.velocity.x * dt;
+          s.position.z += s.velocity.z * dt;
+
+          // Keep inside 25x20m pool bounds (and keep GKs within their 5m defensive area)
+          const margin = 0.52;
+          if (s.isGK) {
+            if (s.team === TEAM.BLUE) {
+              s.position.x = THREE.MathUtils.clamp(s.position.x, -POOL.HALF_X + margin, -POOL.HALF_X + 4.8);
+            } else {
+              s.position.x = THREE.MathUtils.clamp(s.position.x, POOL.HALF_X - 4.8, POOL.HALF_X - margin);
+            }
+            s.position.z = THREE.MathUtils.clamp(s.position.z, -4.2, 4.2);
+          } else {
+            s.position.x = THREE.MathUtils.clamp(s.position.x, -POOL.HALF_X + margin, POOL.HALF_X - margin);
+            s.position.z = THREE.MathUtils.clamp(s.position.z, -POOL.HALF_Z + margin, POOL.HALF_Z - margin);
+          }
+        }
+
+        // Goalkeeper Sanctuary: opponents cannot crowd/attack a GK who has possession of the ball
+        const holder = this.ball.holder;
+        if (holder && holder.isGK) {
+          const minGkClearance = 3.0;
+          for (const s of this.allSwimmers) {
+            if (s.team === holder.team || s.isGK) continue;
+            const dx = s.position.x - holder.position.x;
+            const dz = s.position.z - holder.position.z;
+            const d = Math.hypot(dx, dz);
+            if (d < minGkClearance) {
+              const nx = d > 0.01 ? dx / d : (holder.team === TEAM.BLUE ? 1 : -1);
+              const nz = d > 0.01 ? dz / d : 0;
+              s.position.x = holder.position.x + nx * minGkClearance;
+              s.position.z = THREE.MathUtils.clamp(holder.position.z + nz * minGkClearance, -POOL.HALF_Z + 0.55, POOL.HALF_Z - 0.55);
+            }
+          }
+        }
+
+        // Swimmer-to-swimmer soft separation
+        const minDist = 0.88;
+        for (let i = 0; i < this.allSwimmers.length; i++) {
+          for (let j = i + 1; j < this.allSwimmers.length; j++) {
+            const a = this.allSwimmers[i];
+            const b = this.allSwimmers[j];
+            const dx = b.position.x - a.position.x;
+            const dz = b.position.z - a.position.z;
+            const d2 = dx * dx + dz * dz;
+            if (d2 > 0.0001 && d2 < minDist * minDist) {
+              const d = Math.sqrt(d2);
+              const push = (minDist - d) * 0.5;
+              const nx = dx / d;
+              const nz = dz / d;
+              a.position.x -= nx * push;
+              a.position.z -= nz * push;
+              b.position.x += nx * push;
+              b.position.z += nz * push;
+            }
+          }
+        }
+      }
+
+      _updateAutoSwitch(dt) {
+        if (this.manualSwitchLockTimer > 0) {
+          this.manualSwitchLockTimer = Math.max(0, this.manualSwitchLockTimer - dt);
+        }
+
+        const holder = this.ball.holder;
+
+        // If Blue GK no longer holds the ball, return control to nearest Blue field player
+        if (this.controlled && this.controlled.isGK && !this.controlled.hasBall) {
+          this._switchNearestBlue();
+          return;
+        }
+
+        // If Blue GK gained possession, give user control (unless user manually switched off recently)
+        if (holder === this.blueTeam[0] && this.controlled !== holder && this.manualSwitchLockTimer <= 0) {
+          this.controlled = holder;
+          return;
+        }
+
+        if (!this.autoSwitch || this.manualSwitchLockTimer > 0) return;
+        if (this.controlled && this.controlled.hasBall) return;
+
+        // If a Blue teammate has the ball, follow the ball carrier
+        if (holder && holder.team === TEAM.BLUE) {
+          this.controlled = holder;
+          return;
+        }
+
+        // On defense or loose ball, auto-switch to nearest Blue field player (with hysteresis to avoid jitter)
+        let best = null;
+        let bestDist = Infinity;
+        for (let i = 1; i < this.blueTeam.length; i++) {
+          const p = this.blueTeam[i];
+          if (p.excludedTimer > 0) continue;
+          const d = p.position.distanceTo(this.ball.position);
+          if (d < bestDist) {
+            bestDist = d;
+            best = p;
+          }
+        }
+        if (best && best !== this.controlled) {
+          const currDist = this.controlled ? this.controlled.position.distanceTo(this.ball.position) : Infinity;
+          if (bestDist + 0.85 < currDist) {
+            this.controlled = best;
+          }
+        }
+      }
+
+      _checkBallPickupAndSaves() {
+        if (this.ball.state === 'held') return;
+
+        const bPos = this.ball.position;
+        const bSpeed = this.ball.velocity.length();
+
+        for (const s of this.allSwimmers) {
+          if (s.throwImmunity > 0 || s.excludedTimer > 0) continue;
+
+          // Goalkeeper save / tip-out capsule
+          if (s.isGK) {
+            const dx = Math.abs(bPos.x - s.position.x);
+            const dz = Math.abs(bPos.z - s.position.z);
+            const reachZ = s.lungeTimer > 0 ? 1.18 : 0.72;
+            const reachY = s.lungeTimer > 0 ? 1.05 : 0.78;
+            if (dx < 0.68 && dz < reachZ && bPos.y < reachY) {
+              const wasFastShot = this.ball.isShot && bSpeed > 8.5;
+              // Fingertip parry over endline if ball is at extreme reach of a rocket shot
+              if (wasFastShot && Math.abs(bPos.z - s.position.z) > 0.76 && Math.random() < 0.45) {
+                this.ball.lastDeflectTeam = s.team;
+                this.ball.velocity.x *= -0.35;
+                this.ball.velocity.z += Math.sign(bPos.z - s.position.z) * 4.5;
+                this.ball.velocity.y = 2.8;
+                this.sfx.playSplash(0.75);
+                this._showBanner('PARRY!', 'TIPPED WIDE BY KEEPER', 1.15);
+                return;
+              }
+              this.ball.attachTo(s);
+              this._onPossessionChange(s.team, wasFastShot);
+              if (s.team === TEAM.BLUE) {
+                this.controlled = s;
+                this.manualSwitchLockTimer = 0;
+              }
+              if (wasFastShot) {
+                this._showBanner('SAVE!', `${s.team.toUpperCase()} KEEPER LAUNCHES COUNTER`, 1.4);
+                this.sfx.playSplash(0.8);
+              }
+              return;
+            }
+            continue;
+          }
+
+          // Passing-lane interception by alert defending field players
+          const isPass = this.ball.state === 'flight' && !this.ball.isShot && this.ball.passTarget;
+          const isOpponentPass = isPass && this.ball.passTarget.team !== s.team;
+          const interceptR = s.team === TEAM.WHITE ? this.diff.passInterceptRadius : 0.85;
+          const catchRadius = isOpponentPass ? interceptR : ((this.ball.passTarget === s) ? 1.15 : 0.82);
+
+          const distXZ = Math.hypot(bPos.x - s.position.x, bPos.z - s.position.z);
+          const canReachHeight = bPos.y < 0.92;
+          const slowEnough = bSpeed < 16.0 || this.ball.passTarget === s || isOpponentPass;
+
+          if (distXZ < catchRadius && canReachHeight && slowEnough) {
+            this.ball.attachTo(s);
+            this._onPossessionChange(s.team, isOpponentPass);
+            if (isOpponentPass) {
+              this._showBanner('INTERCEPTED!', `${s.team.toUpperCase()} COUNTER ATTACK`, 1.3);
+              this.sfx.playWhistle(false);
+            }
+            if (s.team === TEAM.BLUE) {
+              this.controlled = s;
+            }
+            return;
+          }
+        }
+      }
+
+      _handleEndlineOut(out) {
+        if (out.type === 'goal_throw') {
+          const gk = out.team === TEAM.BLUE ? this.blueTeam[0] : this.whiteTeam[0];
+          this.ball.attachTo(gk);
+          this._onPossessionChange(out.team, false);
+          if (out.team === TEAM.BLUE) {
+            this.controlled = gk;
+            this.manualSwitchLockTimer = 0;
+          }
+          this._showBanner('GOAL THROW', `${out.team.toUpperCase()} KEEPER RESTARTS`, 1.25);
+        } else {
+          // 2m Corner Throw awarded to attacking wing
+          const wing = out.team === TEAM.BLUE
+            ? (out.z < 0 ? this.blueTeam[4] : this.blueTeam[5])
+            : (out.z < 0 ? this.whiteTeam[4] : this.whiteTeam[5]);
+          const cornerX = out.side * (POOL.HALF_X - 2.05);
+          const cornerZ = out.z < 0 ? -POOL.HALF_Z + 0.9 : POOL.HALF_Z - 0.9;
+          wing.excludedTimer = 0;
+          wing.position.set(cornerX, 0, cornerZ);
+          this.ball.attachTo(wing);
+          this._onPossessionChange(out.team, false);
+          if (out.team === TEAM.BLUE) this.controlled = wing;
+          this.sfx.playWhistle(false);
+          this._showBanner('2M CORNER THROW', `${out.team.toUpperCase()} RETAINS POSSESSION`, 1.35);
+        }
+      }
+
+      _updateClocks(dt) {
+        this.quarterClock -= dt;
+        if (this.counterTimer > 0) {
+          this.counterTimer = Math.max(0, this.counterTimer - dt);
+          if (this.counterTimer === 0) this.counterTeam = null;
+        }
+
+        if (this.ball.holder || this.ball.state === 'flight') {
+          this.shotClock -= dt;
+        }
+
+        // Shot clock violation -> turnover
+        if (this.shotClock <= 0) {
+          this.shotClock = 30;
+          const currentTeam = this.lastPossessionTeam || TEAM.BLUE;
+          const newTeam = currentTeam === TEAM.BLUE ? TEAM.WHITE : TEAM.BLUE;
+          const receiver = newTeam === TEAM.BLUE ? this.blueTeam[0] : this.whiteTeam[0];
+          this.ball.attachTo(receiver);
+          this.lastPossessionTeam = newTeam;
+          if (newTeam === TEAM.BLUE) {
+            this.controlled = receiver;
+            this.manualSwitchLockTimer = 0;
+          }
+          this.sfx.playWhistle(true);
+          this._showBanner('SHOT CLOCK', `TURNOVER TO ${newTeam.toUpperCase()}`, 1.6);
+        }
+
+        // Quarter end -> next quarter real swim-off!
+        if (this.quarterClock <= 0) {
+          this.sfx.playWhistle(true);
+          if (this.quarter < 4) {
+            this.quarter += 1;
+            this.quarterClock = 120;
+            this._startQuarterSwimOff();
+            this._showBanner(`QUARTER ${this.quarter}`, 'SWIM OFF!', 1.8);
+          } else {
+            this.quarterClock = 0;
+            this._triggerFullTime();
+          }
+        }
+      }
+
+      _triggerGoal(scoringTeam) {
+        this.score[scoringTeam] += 1;
+        this.mode = 'goal_pause';
+        this.goalPauseTimer = 2.3;
+        this.goalResetTeam = scoringTeam === TEAM.BLUE ? TEAM.WHITE : TEAM.BLUE;
+        this.spaceHeld = false;
+        this.chargeRatio = 0;
+        this.controlled.isCharging = false;
+
+        this.sfx.playGoalHorn();
+        this._showBanner(
+          'GOAL!',
+          `${scoringTeam === TEAM.BLUE ? 'BLUE' : 'WHITE'} TEAM SCORES!`,
+          2.2
+        );
+        this._syncHUD();
+      }
+
+      _triggerFullTime() {
+        this.mode = 'full_time';
+        this.keys.clear();
+        const overlay = document.getElementById('overlay');
+        const title = document.getElementById('overlay-title');
+        const sub = document.getElementById('overlay-sub');
+        const finalBox = document.getElementById('final-score-box');
+        const btnStart = document.getElementById('btn-start');
+        const btnRestart = document.getElementById('btn-restart');
+
+        document.getElementById('final-blue').textContent = this.score.blue;
+        document.getElementById('final-white').textContent = this.score.white;
+        finalBox.classList.add('visible');
+
+        if (this.score.blue > this.score.white) {
+          title.textContent = 'VICTORY!';
+          sub.textContent = 'Team Blue dominates the pool and takes the championship win!';
+        } else if (this.score.white > this.score.blue) {
+          title.textContent = 'FULL TIME';
+          sub.textContent = 'Team White edges ahead at the final horn. Ready for a rematch?';
+        } else {
+          title.textContent = 'DRAW MATCH';
+          sub.textContent = 'An intense 4-quarter battle ends deadlocked!';
+        }
+
+        btnStart.textContent = 'PLAY AGAIN';
+        btnRestart.style.display = 'none';
+        overlay.classList.remove('hidden');
+      }
+
+      _syncHUD() {
+        document.getElementById('score-blue').textContent = this.score.blue;
+        document.getElementById('score-white').textContent = this.score.white;
+        document.getElementById('quarter-label').textContent = `Q${this.quarter}`;
+
+        const mins = Math.floor(Math.max(0, this.quarterClock) / 60);
+        const secs = Math.floor(Math.max(0, this.quarterClock) % 60);
+        document.getElementById('game-clock').textContent =
+          `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+        const scEl = document.getElementById('shot-clock');
+        const scVal = Math.ceil(Math.max(0, this.shotClock));
+        scEl.textContent = String(scVal).padStart(2, '0');
+        scEl.classList.toggle('low', scVal <= 5);
+
+        const possTeam = this.ball.holder ? this.ball.holder.team : this.lastPossessionTeam;
+        document.getElementById('team-blue-box').classList.toggle('has-ball', possTeam === TEAM.BLUE);
+        document.getElementById('team-white-box').classList.toggle('has-ball', possTeam === TEAM.WHITE);
+
+        // Tactical status chip (2M Offside warning, Exclusion 6v5, or Counter-Attack)
+        const chip = document.getElementById('hud-tactic-chip');
+        const whiteExcl = this.whiteTeam.find((s) => s.excludedTimer > 0);
+        const blueExcl = this.blueTeam.find((s) => s.excludedTimer > 0);
+        const isOffside = this.controlled && !this.controlled.hasBall && this._isAttackerOffside2m(this.controlled, this.ball.position);
+
+        chip.className = 'hud-chip';
+        if (isOffside) {
+          chip.textContent = '2M OFFSIDE!';
+          chip.classList.add('visible', 'danger');
+        } else if (whiteExcl) {
+          chip.textContent = `MAN-UP 6v5 (${Math.ceil(whiteExcl.excludedTimer)}s)`;
+          chip.classList.add('visible', 'counter');
+        } else if (blueExcl) {
+          chip.textContent = `MAN-DOWN 5v6 (${Math.ceil(blueExcl.excludedTimer)}s)`;
+          chip.classList.add('visible', 'danger');
+        } else if (this.counterTimer > 0 && this.counterTeam) {
+          chip.textContent = `${this.counterTeam.toUpperCase()} COUNTER!`;
+          chip.classList.add('visible', 'counter');
+        }
+
+        if (this.controlled) {
+          document.getElementById('hud-cap-num').textContent = this.controlled.number;
+          document.getElementById('hud-player-name').textContent = this.controlled.roleName;
+
+          let status = 'DEFENSE';
+          if (this.controlled.hasBall) status = 'BALL CARRIER';
+          else if (this.counterTimer > 0 && this.counterTeam === TEAM.BLUE) status = 'COUNTER';
+          else if (possTeam === TEAM.BLUE) status = '3-3 ATTACK';
+          document.getElementById('hud-action-state').textContent = status;
+
+          const stam = Math.round(this.controlled.stamina);
+          document.getElementById('hud-stamina-pct').textContent = `${stam}%`;
+          document.getElementById('stamina-fill').style.width = `${stam}%`;
+
+          const pwr = Math.round(this.chargeRatio * 100);
+          document.getElementById('power-fill').style.width = `${pwr}%`;
+          document.getElementById('hud-power-pct').textContent =
+            pwr > 0 ? `${pwr}% POWER` : (this.controlled.hasBall ? 'SPACE: PASS/SHOT • R: LOB • RMB: FAKE' : 'E: SWITCH • F: STEAL');
+        }
+      }
+
+      _loop() {
+        requestAnimationFrame(() => this._loop());
+        const dt = Math.min(0.05, this.clock.getDelta());
+        this.matchElapsed += dt;
+
+        if (this.bannerTimer > 0) {
+          this.bannerTimer -= dt;
+          if (this.bannerTimer <= 0) {
+            document.getElementById('event-banner').classList.remove('visible');
+          }
+        }
+
+        if (this.mode === 'playing') {
+          this._updateAutoSwitch(dt);
+          this._updateAimWorldPoint();
+          this._updateControlledPlayer(dt);
+          this.ai.update(dt, this);
+          this._stepSwimmerPhysics(dt);
+
+          const ballResult = this.ball.update(dt, this.arena, this.sfx);
+          if (ballResult.goal) {
+            this._triggerGoal(ballResult.goal);
+          } else if (ballResult.out) {
+            this._handleEndlineOut(ballResult.out);
+          } else {
+            this._checkBallPickupAndSaves();
+            this._updateClocks(dt);
+          }
+        } else if (this.mode === 'goal_pause') {
+          this.goalPauseTimer -= dt;
+          this.ball.update(dt, this.arena, this.sfx);
+          if (this.goalPauseTimer <= 0) {
+            this._resetPositions(this.goalResetTeam);
+            this.mode = 'playing';
+            this.sfx.playWhistle(false);
+          }
+        }
+
+        // Always animate water & swimmer rigs smoothly (even on menu backdrop!)
+        this.arena.update(dt, this.matchElapsed);
+        for (const s of this.allSwimmers) {
+          s.updateAnimation(dt, this.arena);
+        }
+
+        const passTarget = (this.mode === 'playing' && this.controlled.hasBall)
+          ? this._findBestPassTarget(this.controlled)
+          : null;
+
+        this.renderer3D.updateBroadcastCamera(dt, this.ball, this.matchElapsed);
+        this.renderer3D.updateVisualCues(
+          this.controlled,
+          passTarget,
+          this.aimPoint,
+          this.chargeRatio,
+          this.spaceHeld,
+          this.matchElapsed
+        );
+        this.renderer3D.render();
+
+        if (this.mode === 'playing' || this.mode === 'goal_pause') {
+          this._syncHUD();
+        }
+      }
+    }
+
+    // Boot WATER POLO 3D
+    window.addEventListener('DOMContentLoaded', () => {
+      window.__deepEndGame = new GameEngine();
+    });
+  </script>
+</body>
+</html>
